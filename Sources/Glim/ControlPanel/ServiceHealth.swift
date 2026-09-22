@@ -24,10 +24,12 @@ enum ServiceHealth {
         }
     }
 
-    static func ollamaStatus(modelName: String) async -> Status {
+    private static let healthyStatusCode = 200
+
+    static func ollamaStatus(modelName: String, transport: URLSessionTransport) async -> Status {
         let client = OllamaClient(
             transport: PolicyEnforcingTransport(
-                base: URLSessionTransport(), policy: NetworkPolicy(isJevEnabled: false)),
+                base: transport, policy: NetworkPolicy(isJevEnabled: false)),
             modelName: modelName)
         do {
             let installedModels = try await client.installedModelNames()
@@ -40,13 +42,13 @@ enum ServiceHealth {
         }
     }
 
-    static func layaStatus() async -> Status {
-        let transport = PolicyEnforcingTransport(
-            base: URLSessionTransport(), policy: NetworkPolicy(isJevEnabled: false))
+    static func layaStatus(transport: URLSessionTransport) async -> Status {
+        let policyTransport = PolicyEnforcingTransport(
+            base: transport, policy: NetworkPolicy(isJevEnabled: false))
         do {
             let request = URLRequest(url: try NetworkEndpoint.layaService.url(path: "/healthz"))
-            let (_, response) = try await transport.send(request)
-            return response.statusCode == 200
+            let (_, response) = try await policyTransport.send(request)
+            return response.statusCode == healthyStatusCode
                 ? .healthy("Running on 127.0.0.1:8791") : .unhealthy("HTTP \(response.statusCode)")
         } catch {
             return .unhealthy("Not running — start with scripts/start-laya.sh")

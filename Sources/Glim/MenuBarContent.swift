@@ -31,9 +31,7 @@ struct MenuBarContent: View {
             isOn: Binding(
                 get: { model.settings.isNarrationMuted },
                 set: { isMuted in
-                    var newSettings = model.settings
-                    newSettings.isNarrationMuted = isMuted
-                    Task { await model.apply(newSettings) }
+                    model.changeSettings { $0.isNarrationMuted = isMuted }
                 }))
         #if DEBUG
             Divider()

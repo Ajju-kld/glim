@@ -47,7 +47,7 @@ final class WatchdogSupervisor {
         do {
             observations = [
                 try link.observe(.watchdogReady) {
-                    Task { @MainActor [weak self] in self?.state = .ready }
+                    Task { @MainActor [weak self] in self?.helperReportedReady() }
                 },
                 try link.observe(.hotkeyFailed) {
                     Task { @MainActor [weak self] in self?.state = .hotkeyFailed }
@@ -81,6 +81,16 @@ final class WatchdogSupervisor {
         ) { _ in
             Task { @MainActor [weak self] in self?.checkLiveness() }
         }
+    }
+
+    /// Anyone can post "ready", so it only counts while Glim's own helper process is running.
+    private func helperReportedReady() {
+        guard let helperProcess, helperProcess.isRunning,
+            WatchdogLink.isProcessAlive(helperProcess.processIdentifier)
+        else {
+            return
+        }
+        state = .ready
     }
 
     private func checkLiveness() {

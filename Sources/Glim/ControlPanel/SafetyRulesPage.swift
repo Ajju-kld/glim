@@ -11,40 +11,35 @@ struct SafetyRulesPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(
-                "Removing a phrase or raising a limit makes Glim less safe, so it needs Touch ID. Adding phrases or tightening limits applies right away."
+                "Removing a phrase or raising a limit makes Glim less safe, so it needs Touch ID. Adding phrases or tightening limits applies right away — even to a task that is running."
             )
             .foregroundStyle(.secondary)
             HStack(alignment: .top, spacing: 16) {
                 phraseCard(
                     title: "Forbidden — always blocked", systemImage: "nosign", tint: .red,
-                    phrases: model.settings.safetyPolicy.riskWords.forbidden,
-                    newPhrase: $newForbiddenPhrase
-                ) { settings, phrases in
-                    settings.safetyPolicy.riskWords.forbidden = phrases
-                }
+                    phrases: \.safetyPolicy.riskWords.forbidden, newPhrase: $newForbiddenPhrase)
                 phraseCard(
                     title: "Confirm — asks you", systemImage: "hand.raised", tint: .orange,
-                    phrases: model.settings.safetyPolicy.riskWords.confirm,
-                    newPhrase: $newConfirmPhrase
-                ) { settings, phrases in
-                    settings.safetyPolicy.riskWords.confirm = phrases
-                }
+                    phrases: \.safetyPolicy.riskWords.confirm, newPhrase: $newConfirmPhrase)
             }
             GlassCard(title: "Limits", systemImage: "gauge.with.needle") {
                 limitStepper("Actions per task", value: \.maximumActionsPerTask, range: 1...100)
                 limitStepper("Tries per step", value: \.maximumTriesPerStep, range: 1...10)
                 limitStepper(
                     "Actions in a row with no visible change",
-                    value: \.maximumConsecutiveUnchangedActions, range: 1...10)
+                    value: \.maximumConsecutiveUnchangedActions,
+                    range: 1...10)
                 limitStepper(
                     "Longest typed text (characters)", value: \.maximumTypedTextLength,
-                    range: 10...5_000, step: 50)
+                    range: 10...5_000,
+                    step: 50)
                 secondsStepper(
                     "Task time limit (seconds)", value: \.taskTimeoutSeconds, range: 30...900,
                     step: 30)
                 secondsStepper(
                     "Pause between actions (seconds)", value: \.minimumSecondsBetweenActions,
-                    range: 0...2, step: 0.05)
+                    range: 0...2,
+                    step: 0.05)
             }
             Button("Reset to safe defaults…", role: .destructive) {
                 isConfirmingReset = true
@@ -53,7 +48,7 @@ struct SafetyRulesPage: View {
                 "Restore every safety setting to its default?", isPresented: $isConfirmingReset
             ) {
                 Button("Reset", role: .destructive) {
-                    Task { await model.resetToSafeDefaults() }
+                    model.resetToSafeDefaults()
                 }
             }
         }
@@ -63,19 +58,18 @@ struct SafetyRulesPage: View {
         title: String,
         systemImage: String,
         tint: Color,
-        phrases: [String],
-        newPhrase: Binding<String>,
-        store: @escaping (inout GlimSettings, [String]) -> Void
+        phrases phrasesKeyPath: WritableKeyPath<GlimSettings, [String]>,
+        newPhrase: Binding<String>
     ) -> some View {
         GlassCard(title: title, systemImage: systemImage) {
-            ForEach(phrases, id: \.self) { phrase in
+            ForEach(model.settings[keyPath: phrasesKeyPath], id: \.self) { phrase in
                 HStack {
                     Text(phrase)
                     Spacer()
                     Button {
-                        var newSettings = model.settings
-                        store(&newSettings, phrases.filter { $0 != phrase })
-                        Task { await model.apply(newSettings) }
+                        model.changeSettings {
+                            $0[keyPath: phrasesKeyPath].removeAll { $0 == phrase }
+                        }
                     } label: {
                         Image(systemName: "minus.circle.fill").foregroundStyle(tint)
                     }
@@ -86,25 +80,26 @@ struct SafetyRulesPage: View {
             HStack {
                 TextField("Add a phrase", text: newPhrase)
                     .textFieldStyle(.roundedBorder)
-                    .onSubmit { add(newPhrase, to: phrases, store: store) }
-                Button("Add") { add(newPhrase, to: phrases, store: store) }
+                    .onSubmit { add(newPhrase, to: phrasesKeyPath) }
+                Button("Add") { add(newPhrase, to: phrasesKeyPath) }
                     .disabled(newPhrase.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
     }
 
     private func add(
-        _ newPhrase: Binding<String>, to phrases: [String],
-        store: @escaping (inout GlimSettings, [String]) -> Void
+        _ newPhrase: Binding<String>, to phrasesKeyPath: WritableKeyPath<GlimSettings, [String]>
     ) {
         let phrase = newPhrase.wrappedValue.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !phrase.isEmpty, !phrases.contains(phrase) else {
+        guard !phrase.isEmpty else {
             return
         }
-        var newSettings = model.settings
-        store(&newSettings, phrases + [phrase])
         newPhrase.wrappedValue = ""
-        Task { await model.apply(newSettings) }
+        model.changeSettings { settings in
+            if !settings[keyPath: phrasesKeyPath].contains(phrase) {
+                settings[keyPath: phrasesKeyPath].append(phrase)
+            }
+        }
     }
 
     private func limitStepper(
@@ -115,9 +110,7 @@ struct SafetyRulesPage: View {
             value: Binding(
                 get: { model.settings.safetyPolicy.limits[keyPath: keyPath] },
                 set: { newValue in
-                    var newSettings = model.settings
-                    newSettings.safetyPolicy.limits[keyPath: keyPath] = newValue
-                    Task { await model.apply(newSettings) }
+                    model.changeSettings { $0.safetyPolicy.limits[keyPath: keyPath] = newValue }
                 }),
             in: range, step: step
         ) {
@@ -138,9 +131,7 @@ struct SafetyRulesPage: View {
             value: Binding(
                 get: { model.settings.safetyPolicy.limits[keyPath: keyPath] },
                 set: { newValue in
-                    var newSettings = model.settings
-                    newSettings.safetyPolicy.limits[keyPath: keyPath] = newValue
-                    Task { await model.apply(newSettings) }
+                    model.changeSettings { $0.safetyPolicy.limits[keyPath: keyPath] = newValue }
                 }),
             in: range, step: step
         ) {

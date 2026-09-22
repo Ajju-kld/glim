@@ -122,8 +122,8 @@ struct AppsTrustPage: View {
     }
 
     private func move(_ bundleIdentifier: String, to tier: TrustTier) {
-        var newSettings = model.settings
-        newSettings.safetyPolicy.appTrust.tiersByBundleIdentifier[bundleIdentifier] = tier
-        Task { await model.apply(newSettings) }
+        model.changeSettings {
+            $0.safetyPolicy.appTrust.tiersByBundleIdentifier[bundleIdentifier] = tier
+        }
     }
 }

@@ -5,9 +5,12 @@ public struct URLSessionTransport: HTTPTransport {
     private let session: URLSession
     private let redirectRefuser = RedirectRefuser()
 
-    /// Creates a transport with its own ephemeral session.
+    /// Creates a transport with its own ephemeral session that ignores system proxies, so
+    /// traffic goes only where the network allowlist says. Create one and share it.
     public init() {
-        session = URLSession(configuration: .ephemeral)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.connectionProxyDictionary = [:]
+        session = URLSession(configuration: configuration)
     }
 
     /// Sends `request`; a redirect is returned as-is instead of being followed.

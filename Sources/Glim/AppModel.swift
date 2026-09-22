@@ -38,6 +38,7 @@ final class AppModel {
     private var runningTask: Task<Void, Never>?
     private var listeningTask: Task<Void, Never>?
     private var pillResetTask: Task<Void, Never>?
+    private var settingsChangeTask: Task<Void, Never>?
 
     var isArmed: Bool {
         tripReason == nil
@@ -273,8 +274,33 @@ final class AppModel {
 
     // MARK: - Settings
 
-    /// Applies edited settings; loosening changes ask for Touch ID first.
-    func apply(_ newSettings: GlimSettings) async {
+    /// Applies `change` to the latest settings, one change at a time, so quick clicks (or a
+    /// pending Touch ID prompt) can't overwrite each other. Loosening changes ask for Touch ID.
+    func changeSettings(_ change: @escaping @MainActor (inout GlimSettings) -> Void) {
+        let previousChange = settingsChangeTask
+        settingsChangeTask = Task {
+            await previousChange?.value
+            var newSettings = self.settings
+            change(&newSettings)
+            await self.apply(newSettings)
+        }
+    }
+
+    func resetToSafeDefaults() {
+        let previousChange = settingsChangeTask
+        settingsChangeTask = Task {
+            await previousChange?.value
+            do {
+                try await self.services.settingsStore.resetToSafeDefaults()
+                self.settings = await self.services.settingsStore.current
+                self.settingsMessage = "Safe defaults restored."
+            } catch {
+                self.settingsMessage = "Not reset: \(error)"
+            }
+        }
+    }
+
+    private func apply(_ newSettings: GlimSettings) async {
         do {
             try await services.settingsStore.update(to: newSettings)
             settings = await services.settingsStore.current
@@ -282,18 +308,10 @@ final class AppModel {
             settingsMessage = nil
         } catch .ownerNotConfirmed {
             settingsMessage = "Not changed: loosening safety needs Touch ID or your password."
+        } catch .plannerModelNotLocal(let modelName) {
+            settingsMessage = "Not changed: \(modelName) is not a local model."
         } catch {
             settingsMessage = "Not changed: \(error)"
-        }
-    }
-
-    func resetToSafeDefaults() async {
-        do {
-            try await services.settingsStore.resetToSafeDefaults()
-            settings = await services.settingsStore.current
-            settingsMessage = "Safe defaults restored."
-        } catch {
-            settingsMessage = "Not reset: \(error)"
         }
     }
 

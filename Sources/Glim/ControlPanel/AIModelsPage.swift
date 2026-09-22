@@ -21,12 +21,11 @@ struct AIModelsPage: View {
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 240)
                     Button("Save") {
-                        var newSettings = model.settings
-                        newSettings.plannerModelName = plannerModelName
+                        let chosenModel = plannerModelName
+                        model.changeSettings { $0.plannerModelName = chosenModel }
                         Task {
-                            await model.apply(newSettings)
                             ollamaStatus = await ServiceHealth.ollamaStatus(
-                                modelName: plannerModelName)
+                                modelName: chosenModel, transport: model.services.transport)
                         }
                     }
                 }
@@ -53,9 +52,7 @@ struct AIModelsPage: View {
                     isOn: Binding(
                         get: { model.settings.jev.isEnabled },
                         set: { isEnabled in
-                            var newSettings = model.settings
-                            newSettings.jev.isEnabled = isEnabled
-                            Task { await model.apply(newSettings) }
+                            model.changeSettings { $0.jev.isEnabled = isEnabled }
                         }))
                 Label(
                     "When on, your spoken goal, the app name, the window title and button labels are sent to TypeSafe's servers in the US. Never screenshots or screen text, and never for excluded apps. Turning it on needs Touch ID.",
@@ -91,8 +88,8 @@ struct AIModelsPage: View {
         .task {
             plannerModelName = model.settings.plannerModelName
             async let ollama = ServiceHealth.ollamaStatus(
-                modelName: model.settings.plannerModelName)
-            async let laya = ServiceHealth.layaStatus()
+                modelName: model.settings.plannerModelName, transport: model.services.transport)
+            async let laya = ServiceHealth.layaStatus(transport: model.services.transport)
             ollamaStatus = await ollama
             layaStatus = await laya
         }

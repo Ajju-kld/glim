@@ -8,6 +8,8 @@ struct LiveServices {
     let accessibility = AccessibilityService()
     let appResolver = AppResolver(catalog: WorkspaceAppCatalog(), verifier: CodeSignatureVerifier())
     let transcriber = SpeechAnalyzerTranscriber()
+    /// One network session for the whole app.
+    let transport = URLSessionTransport()
     let settingsStore: SettingsStore
 
     init() {

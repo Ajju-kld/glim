@@ -107,8 +107,9 @@ struct DashboardPage: View {
     }
 
     private func refresh() async {
-        async let ollama = ServiceHealth.ollamaStatus(modelName: model.settings.plannerModelName)
-        async let laya = ServiceHealth.layaStatus()
+        async let ollama = ServiceHealth.ollamaStatus(
+            modelName: model.settings.plannerModelName, transport: model.services.transport)
+        async let laya = ServiceHealth.layaStatus(transport: model.services.transport)
         ollamaStatus = await ollama
         layaStatus = await laya
         do {
