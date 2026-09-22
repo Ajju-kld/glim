@@ -11,6 +11,7 @@ let package = Package(
         .target(name: "GlimCore"),
         .executableTarget(name: "GlimWatchdog", dependencies: ["GlimCore"]),
         .executableTarget(name: "Testbed"),
+        .executableTarget(name: "Glim", dependencies: ["GlimCore"]),
         .testTarget(name: "GlimCoreTests", dependencies: ["GlimCore"]),
     ],
     swiftLanguageModes: [.v6]

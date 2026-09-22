@@ -471,3 +471,39 @@ after); later checks use the session scratchpad.
 passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Tasks 29–31: Glim app — model, menu bar, notch pill, panels, control panel
+
+**What:** the `Glim` executable target.
+- `AppModel` (`@Observable`, main actor): settings, push-to-talk (⌃⌥V press/release → on-device
+  transcript → task), kill-switch wiring (trip → cancel task, stop mic and voice, dismiss panels,
+  guard popup, audit), watchdog state, action-mode rules (watchdog ready + English interface;
+  otherwise every app is capped at read-only).
+- `LiveServices`, `RunnerFactory` (policy-enforcing transport → Ollama, Laya, and Jev only when
+  enabled), `WatchdogSupervisor` (launches `Contents/Helpers/GlimWatchdog`, listens for
+  ready/hotkeyFailed, checks liveness every second), `GlimStorage`.
+- Notch pill: borderless **non-activating** panel merged with the notch (floating at top-center
+  without one), waveform while listening, pulse while acting, ■ to stop, red glow when stopped.
+  Status logic lives in the tested `PillStatus` reducer.
+- Decision panels: plan approval, confirmation (app, control, exact text, every reason) and the
+  red guard popup — centered, non-activating so the target app stays frontmost, Approve/Allow
+  by click only, Escape cancels, 60-second auto-cancel with a countdown.
+- Control panel (sidebar + Liquid Glass cards): Dashboard (armed/STOP/health/today), Apps & Trust
+  (drag between four tiers, context menu, search), Safety Rules (phrase lists, limit steppers,
+  reset), AI Models (Ollama status and model, Laya status, Jev toggle with privacy notice and
+  Keychain key), Permissions (status + System Settings links), Activity Log (search, clear).
+- Live glue in `GlimCore`: `KeychainSealKeyProvider`, `KeychainSecretStore`,
+  `DeviceOwnerAuthenticator` (Touch ID / password).
+
+**Design check (apple-ui-design):** system fonts, 8-point spacing, one primary action per panel,
+glass cards, subtle animations, dark-mode friendly.
+
+**Found while building:** blocking only the main thread would not prove the watchdog's
+force-quit, because the stop handshake answers from a background queue. The debug "Simulate
+freeze" suspends the whole process (`SIGSTOP`) instead.
+
+**Not unit-tested:** SwiftUI/AppKit views and Keychain/LocalAuthentication glue (a Keychain test
+would write outside the repo). Their logic lives in tested `GlimCore` types; the manual test
+script covers the rest.
+
+**Gates:** `swift build` — no errors, no warnings. `All gates passed.` (265 tests)
