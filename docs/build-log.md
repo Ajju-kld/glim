@@ -289,3 +289,25 @@ backend. **Not run overnight** — it downloads third-party code and a model; th
 re-check the pin (commands in the README) and run it.
 
 **Check:** `bash -n scripts/start-laya.sh` → syntax ok.
+
+## 2026-09-23 — Task 20: App identity verification, catalog, resolver
+
+**What:** `CodeSignatureVerifier` (Security framework), `SignatureVerifying`, `AppCatalog` +
+live `WorkspaceAppCatalog`, `InstalledApp`, `RunningApp`, `AppResolver`, `ResolvedApp`.
+
+**Why:** A *valid* signature isn't enough — an ad-hoc-signed impostor is valid too. The
+verifier requires `identifier "<bundle id>" and anchor apple` for `com.apple.*` and
+`anchor apple generic` otherwise, so an app must be signed by an Apple-issued certificate
+under its own identifier. Bundle identifiers with characters that could change the
+requirement's meaning are rejected. Running apps are checked through the kernel-tracked
+process signature; installed apps statically without re-hashing resources.
+
+**Real-system tests (no permission needed):** Calculator is trusted as `com.apple.calculator`
+and rejected when it claims `com.apple.Notes`.
+
+**Consequence:** Testbed built with ad-hoc signing is capped at read-only; sign it with the
+Apple Development identity to test clicks (see README).
+
+**TDD:** failed with "cannot find type 'AppResolver' in scope"; then 191 tests passed.
+
+**Gates:** `All gates passed.`
