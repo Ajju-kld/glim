@@ -211,3 +211,12 @@ the store re-checks that nothing changed meanwhile (actor reentrancy).
 **TDD:** failed to compile (types missing); then 136 tests passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 14: SAFETY.md — Part 1 complete
+
+**What:** `docs/SAFETY.md` explains the safety model in plain words: plan approval, trust tiers,
+word lists, the per-step checks, second opinions, the kill switch and watchdog, what Glim
+cannot do, Touch ID for loosening, and the audit log.
+
+**Part 1 result:** the whole safety core is pure, tested Swift with no permissions needed —
+136 tests across 14 suites, strict lint clean.
