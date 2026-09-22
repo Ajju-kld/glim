@@ -143,6 +143,8 @@ final class AppModel {
                 for await event in events where showsTranscript {
                     self.pillStatus = self.pillStatus.applying(event)
                 }
+            } catch .cancelledBeforeReady {
+                // The talk key was released before the microphone was ready; nothing to show.
             } catch {
                 self.isListening = false
                 self.showPillMessage(.stopped(reason: error.explanation))
@@ -251,10 +253,9 @@ final class AppModel {
         tripReason = reason
         runningTask?.cancel()
         narrator.stopSpeaking()
-        if isListening {
-            isListening = false
-            Task { [services] in await services.transcriber.cancelListening() }
-        }
+        isListening = false
+        listeningTask?.cancel()
+        Task { [services] in await services.transcriber.cancelListening() }
         decisionPresenter?.dismissAll()
         decisionPresenter?.showGuardPopup(
             title: "Glim stopped", explanation: reason.explanation, stepNumber: nil)

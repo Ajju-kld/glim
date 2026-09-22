@@ -10,6 +10,7 @@ public actor SpeechAnalyzerTranscriber: PushToTalkTranscribing {
     /// Tunable: microphone buffer size in frames.
     private static let tapBufferSize: AVAudioFrameCount = 4_096
 
+    private var sessionGate = ListeningSessionGate()
     private var audioEngine: AVAudioEngine?
     private var analyzer: SpeechAnalyzer?
     private var inputContinuation: AsyncStream<AnalyzerInput>.Continuation?
@@ -19,10 +20,13 @@ public actor SpeechAnalyzerTranscriber: PushToTalkTranscribing {
     /// Creates a transcriber.
     public init() {}
 
-    /// Starts the microphone and recognition.
+    /// Starts the microphone and recognition. If the talk key is released while this is still
+    /// starting, it throws ``VoiceInputError/cancelledBeforeReady`` and the microphone stays off.
     public func startListening() async throws(VoiceInputError) -> AsyncStream<VoiceEvent> {
         await cancelListening()
+        let session = sessionGate.beginStarting()
         try await Self.ensurePermissions()
+        try ensureStillStarting(session)
         guard
             let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Self.preferredLocale)
         else {
@@ -30,6 +34,7 @@ public actor SpeechAnalyzerTranscriber: PushToTalkTranscribing {
         }
         let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
         try await Self.installSpeechAssetsIfNeeded(for: transcriber)
+        try ensureStillStarting(session)
         guard
             let analyzerFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [
                 transcriber
@@ -37,6 +42,7 @@ public actor SpeechAnalyzerTranscriber: PushToTalkTranscribing {
         else {
             throw .speechUnavailable(reason: "No audio format is available for recognition.")
         }
+        try ensureStillStarting(session)
 
         let analyzer = SpeechAnalyzer(modules: [transcriber])
         let (inputSequence, inputContinuation) = AsyncStream<AnalyzerInput>.makeStream()
@@ -45,6 +51,12 @@ public actor SpeechAnalyzerTranscriber: PushToTalkTranscribing {
             try await analyzer.start(inputSequence: inputSequence)
         } catch {
             throw .speechUnavailable(reason: error.localizedDescription)
+        }
+        guard sessionGate.shouldContinueStarting(session) else {
+            inputContinuation.finish()
+            eventContinuation.finish()
+            await analyzer.cancelAndFinishNow()
+            throw .cancelledBeforeReady
         }
         resultsTask = Self.collectTranscript(
             from: transcriber.results, reportingTo: eventContinuation)
@@ -71,11 +83,24 @@ public actor SpeechAnalyzerTranscriber: PushToTalkTranscribing {
         self.analyzer = analyzer
         self.inputContinuation = inputContinuation
         self.eventContinuation = eventContinuation
+        guard sessionGate.finishStarting(session) else {
+            await cancelListening()
+            throw .cancelledBeforeReady
+        }
         return events
     }
 
-    /// Stops the microphone, lets recognition finish, and returns the transcript.
+    /// Stops the microphone, lets recognition finish, and returns the transcript. A release
+    /// that arrives while the microphone is still starting returns an empty transcript.
     public func stopListening() async throws(VoiceInputError) -> String {
+        switch sessionGate.requestStop() {
+        case .cancelStart:
+            return ""
+        case .nothingToStop:
+            throw .notListening
+        case .stopListening:
+            break
+        }
         guard let analyzer, let resultsTask else {
             throw .notListening
         }
@@ -93,13 +118,20 @@ public actor SpeechAnalyzerTranscriber: PushToTalkTranscribing {
         return transcript.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Stops immediately and discards everything heard.
+    /// Stops immediately and discards everything heard, including a start in progress.
     public func cancelListening() async {
+        sessionGate.reset()
         stopMicrophone()
         inputContinuation?.finish()
         await analyzer?.cancelAndFinishNow()
         resultsTask?.cancel()
         finishSession()
+    }
+
+    private func ensureStillStarting(_ session: Int) throws(VoiceInputError) {
+        guard sessionGate.shouldContinueStarting(session) else {
+            throw .cancelledBeforeReady
+        }
     }
 
     // MARK: - Helpers

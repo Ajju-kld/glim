@@ -6,6 +6,8 @@ public enum VoiceInputError: Error, Sendable, Equatable {
     case speechUnavailable(reason: String)
     case audioEngineFailed(reason: String)
     case notListening
+    /// The talk key was released before the microphone was ready; nothing was recorded.
+    case cancelledBeforeReady
 
     /// One sentence for the popup, naming the fix when there is one.
     public var explanation: String {
@@ -22,6 +24,8 @@ public enum VoiceInputError: Error, Sendable, Equatable {
             "The microphone could not start: \(reason)"
         case .notListening:
             "Glim wasn't listening."
+        case .cancelledBeforeReady:
+            "Listening was cancelled before the microphone was ready."
         }
     }
 }
