@@ -35,10 +35,11 @@ struct TakeoverMonitorTests {
         let monitor = TakeoverMonitor(
             killSwitch: killSwitch, inputClock: inputClock, timing: quickTiming)
 
-        let watching = Task { await monitor.watchUntilCancelled() }
+        let startInstant = ContinuousClock.now
+        let watching = Task { await monitor.watchUntilCancelled(from: startInstant) }
         try await Task.sleep(for: .milliseconds(80))
         inputClock.simulateHumanInput()
-        try await Task.sleep(for: .milliseconds(80))
+        await waitUntilTripped(killSwitch)
         watching.cancel()
         await watching.value
 
@@ -48,13 +49,13 @@ struct TakeoverMonitorTests {
     @Test func inputDuringTheSettleDelayIsIgnored() async throws {
         let killSwitch = KillSwitch()
         let inputClock = ScriptedInputClock()
-        let slowSettle = TakeoverMonitor.Timing(
-            settleDelay: .milliseconds(200), pollInterval: .milliseconds(5), graceSeconds: 0.01)
+        let longSettle = TakeoverMonitor.Timing(
+            settleDelay: .seconds(5), pollInterval: .milliseconds(5), graceSeconds: 0.01)
         let monitor = TakeoverMonitor(
-            killSwitch: killSwitch, inputClock: inputClock, timing: slowSettle)
+            killSwitch: killSwitch, inputClock: inputClock, timing: longSettle)
 
-        let watching = Task { await monitor.watchUntilCancelled() }
-        try await Task.sleep(for: .milliseconds(20))
+        let startInstant = ContinuousClock.now
+        let watching = Task { await monitor.watchUntilCancelled(from: startInstant) }
         inputClock.simulateHumanInput()
         try await Task.sleep(for: .milliseconds(100))
         watching.cancel()
@@ -68,7 +69,8 @@ struct TakeoverMonitorTests {
         let monitor = TakeoverMonitor(
             killSwitch: killSwitch, inputClock: ScriptedInputClock(), timing: quickTiming)
 
-        let watching = Task { await monitor.watchUntilCancelled() }
+        let startInstant = ContinuousClock.now
+        let watching = Task { await monitor.watchUntilCancelled(from: startInstant) }
         try await Task.sleep(for: .milliseconds(120))
         watching.cancel()
         await watching.value

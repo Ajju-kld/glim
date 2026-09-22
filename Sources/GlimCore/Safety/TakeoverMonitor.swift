@@ -42,7 +42,7 @@ public struct TakeoverMonitor: Sendable {
     ///
     /// - Parameter startInstant: When watching was requested. Measuring from here — not from
     ///   when this task first gets to run — means input in a scheduling gap is never missed.
-    public func watchUntilCancelled(from startInstant: ContinuousClock.Instant = .now) async {
+    public func watchUntilCancelled(from startInstant: ContinuousClock.Instant) async {
         let watchingStartedAt = startInstant + timing.settleDelay
         do {
             try await Task.sleep(until: watchingStartedAt, clock: .continuous)

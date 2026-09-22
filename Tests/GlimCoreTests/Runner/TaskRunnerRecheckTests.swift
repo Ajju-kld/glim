@@ -159,3 +159,38 @@ struct TaskRunnerLivePolicyTests {
         }
     }
 }
+
+struct TaskRunnerExecutionTargetTests {
+    typealias Base = TaskRunnerTests
+
+    @Test func confirmedStepActsOnTheFreshlyReadControl() async throws {
+        try await withTemporaryDirectory { directory in
+            let screenReader = ScriptedScreenReader(table: Base.testbedTable)
+            let sendWithNewValue = UIElementSnapshot(
+                number: 4, role: "AXButton", label: "Send", value: "ready")
+            let refreshedTable = ElementTable(
+                elements: [
+                    Base.newItemButton, Base.deleteButton, Base.notesField, sendWithNewValue,
+                    Base.archiveButton,
+                ],
+                handleIndexByElementNumber: Base.testbedTable.handleIndexByElementNumber,
+                readableText: Base.testbedTable.readableText, wasTruncated: false)
+            let executor = RecordingExecutor()
+            let harness = TaskRunnerTests.Harness(
+                model: FakeLanguageModel(answers: [
+                    .success(
+                        #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"Send"}]}"#
+                    ),
+                    .success(#"{"elementNumber":4,"blocked":false}"#),
+                ]),
+                screenReader: screenReader, executor: executor,
+                decisions: ScriptedDecisions(confirmAnswers: [true]) {
+                    screenReader.replaceTable(with: refreshedTable)
+                },
+                auditLog: AuditLog(directory: directory))
+
+            #expect(await harness.run("click send") == .completed)
+            #expect(executor.performed.first?.targetElement == sendWithNewValue)
+        }
+    }
+}

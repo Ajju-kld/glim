@@ -62,7 +62,7 @@ extension TaskRunner {
         try ensureArmed()
         do {
             try await dependencies.executor.perform(
-                ExecutableAction(step: step.action, app: app, targetElement: target))
+                ExecutableAction(step: step.action, app: app, targetElement: executionTarget))
         } catch .stopped {
             throw RunnerStop.stopped(dependencies.killSwitch.tripReason ?? .stopButton)
         } catch {
