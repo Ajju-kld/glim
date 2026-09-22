@@ -347,3 +347,28 @@ can never pop a system prompt.
 (PNG signature, size fitting, and "permission missing → clear error" without prompting).
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 23: Executor
+
+**What:** `ActionPerforming`, `ExecutableAction`, `ExecutionError`, `LiveExecutor`,
+`SyntheticInput` (Unicode typing in ≤ 20-unit chunks that never split a character, allowed-key
+codes, scroll), `WindowFrameCalculator` (presets, AppKit → Accessibility coordinates),
+`ScreenGeometry`, and `AccessibilityService+Actions` (press, focus, window frame, minimize,
+restore).
+
+**Why (safety details):**
+- Events go to the target process with `postToPid`, never the global stream, so a sudden focus
+  change can't redirect keystrokes, and they don't count as hardware input (the basis of the
+  takeover monitor).
+- Before pressing or typing, the live element is re-checked against its snapshot (role, subrole,
+  title, description, not a password field) — a control that changed since it was read is
+  refused.
+- Typing re-checks the kill switch and keyboard focus before every chunk.
+- Quitting uses `terminate()` (the app may ask to save), never `forceTerminate()`.
+- Typing never sets `AXValue`, which would overwrite existing text.
+
+**TDD:** failed to compile (types missing); then 217 tests passed (window presets incl. menu bar
+and Dock offsets, chunking with emoji joiners, key codes, kill switch stops before any action).
+Live pressing and typing need Accessibility permission → covered by the manual test script.
+
+**Gates:** `All gates passed.`
