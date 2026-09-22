@@ -258,3 +258,21 @@ lists only those elements, labels only, never field values.
 **TDD:** failed to compile (types missing); then 161 tests passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Tasks 17 and 18: Checkers and consensus
+
+**What:** `TargetChecker`, `TargetReviewRequest`, `CheckerVerdict`, `SystemOneWireFormat`,
+`CandidateShortlist`, `SystemOneTargetReviewer`, `LayaChecker` (local `127.0.0.1:8791`),
+`JevChecker` (pinned `jev-1.13.0`, bearer key, excluded apps), `CheckerTuning` (0.60 threshold,
+20-candidate shortlist, 10 s timeout), `CheckerConsensus` (checkers run concurrently),
+`CheckerOutcome`, `CheckerConsensusResult`.
+
+**Why:** B-Q15–Q17, B-Q23. A checker's disagreement counts only when it is confident; an unsure
+checker abstains, so Laya's ~63% accuracy doesn't flood you with popups. More than 20 candidates
+→ shortlist by word overlap, and a pick outside the shortlist abstains without a network call.
+Jev never sees excluded (messaging) apps, needs a key, and is blocked by the network policy
+unless enabled — each case is tested to send nothing. Offline → `checkerOffline` concern.
+
+**TDD:** failed with "cannot find type 'LayaChecker' in scope"; then 177 tests passed.
+
+**Gates:** `All gates passed.`
