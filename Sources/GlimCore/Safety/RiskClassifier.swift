@@ -1,9 +1,12 @@
+import Foundation
+
 /// Finds Forbidden and Confirm phrases in the texts that describe a control.
 ///
 /// Matching is case-insensitive and whole-word: "Delete Note" and "Move to Trash…" match, but
 /// "Deleted Items" and "Postpone" do not. Apostrophes are dropped and every other run of
 /// punctuation or whitespace becomes one space, so "Don’t Save", "Dont Save" and "SIGN-OUT"
-/// still match. Forbidden phrases win over Confirm phrases.
+/// still match. Accents and full-width letters are folded first ("Délete", "ｄｅｌｅｔｅ").
+/// Forbidden phrases win over Confirm phrases.
 public struct RiskClassifier: Sendable {
     private struct Phrase: Sendable {
         let original: String
@@ -35,12 +38,18 @@ public struct RiskClassifier: Sendable {
         return .safe
     }
 
-    /// Lowercases `text`, drops apostrophes, and joins the remaining letter-and-digit words
-    /// with single spaces, padded on both ends so phrases match whole words only.
+    /// Folds compatibility forms, accents, width and case, drops apostrophes, and joins the
+    /// remaining letter-and-digit words with single spaces, padded on both ends so phrases match
+    /// whole words only.
     static func normalize(_ text: String) -> String {
+        let foldedText = text.precomposedStringWithCompatibilityMapping
+            .folding(
+                options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil
+            )
+            .lowercased()
         var words: [String] = []
         var currentWord = ""
-        for character in text.lowercased() where !apostropheVariants.contains(character) {
+        for character in foldedText where !apostropheVariants.contains(character) {
             if character.isLetter || character.isNumber {
                 currentWord.append(character)
             } else if !currentWord.isEmpty {

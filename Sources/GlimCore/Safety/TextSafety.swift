@@ -1,13 +1,24 @@
-/// Detects characters that act like key presses when typed.
+/// Detects characters that are unsafe to type.
 enum TextSafety {
-    /// Whether `text` contains a newline, tab, line or paragraph separator, or another control
-    /// character. Typed, these behave like Return or Tab — in a chat app a newline sends the
-    /// message — so they would bypass the Return confirmation. Emoji joiners are allowed.
-    static func containsKeyLikeCharacters(_ text: String) -> Bool {
+    /// The zero-width joiner that builds emoji like 👨‍👩‍👧.
+    private static let zeroWidthJoiner: Unicode.Scalar = "\u{200D}"
+    /// Tag characters that build flag emoji such as 🏴󠁧󠁢󠁳󠁣󠁴󠁿.
+    private static let emojiTagCharacters: ClosedRange<UInt32> = 0xE0020...0xE007F
+
+    /// Whether `text` contains a character that is unsafe to type:
+    /// - newlines, tabs and other control characters, which act like Return or Tab (in a chat
+    ///   app a newline sends the message, bypassing the Return confirmation);
+    /// - invisible formatting characters (bidi overrides, zero-width spaces), which would make the
+    ///   approval panel show different text from what is typed.
+    ///
+    /// Emoji joiners and flag tags are allowed.
+    static func containsUnsafeCharacters(_ text: String) -> Bool {
         text.unicodeScalars.contains { scalar in
             switch scalar.properties.generalCategory {
             case .control, .lineSeparator, .paragraphSeparator:
                 true
+            case .format:
+                scalar != zeroWidthJoiner && !emojiTagCharacters.contains(scalar.value)
             default:
                 false
             }

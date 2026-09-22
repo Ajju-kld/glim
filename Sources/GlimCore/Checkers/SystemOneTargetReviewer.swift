@@ -79,7 +79,7 @@ struct SystemOneTargetReviewer: Sendable {
         let wireRequest = SystemOneWireFormat.Request(
             state: [
                 "goal": .string(request.goal),
-                "step": .string(request.step.action.summary),
+                "step": .string(request.step.action.summaryWithoutTypedText),
                 "action": .string(request.step.action.kind.rawValue),
                 "app": .string(request.step.app?.displayName ?? ""),
                 "windowTitle": request.windowTitle.map { .string($0) } ?? .null,
@@ -89,7 +89,7 @@ struct SystemOneTargetReviewer: Sendable {
                 SystemOneWireFormat.targetQuestionIdentifier: SystemOneWireFormat.Question(
                     type: SystemOneWireFormat.choiceQuestionType,
                     instructions:
-                        "Which numbered control performs this step: \(request.step.action.summary)?",
+                        "Which numbered control performs this step: \(request.step.action.summaryWithoutTypedText)?",
                     criteria: criteria)
             ])
 

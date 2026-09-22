@@ -214,3 +214,27 @@ struct SystemOneCheckerTests {
         #expect(fakeTransport.sentRequests.isEmpty)
     }
 }
+
+struct SystemOneCheckerPrivacyTests {
+    @Test func typedTextIsNeverSentToACheckerService() async throws {
+        let field = UIElementSnapshot.fixture(number: 1, role: "AXTextField", label: "Message")
+        let fakeTransport = FakeHTTPTransport(replies: [
+            .response(
+                statusCode: 200,
+                body: #"{"answers":{"target":{"choice":"1","probabilities":{"1":0.9}}}}"#)
+        ])
+        let checker = LayaChecker(transport: fakeTransport)
+        let request = TargetReviewRequest(
+            goal: "write to Sam",
+            step: ScreenedStep(
+                number: 1,
+                action: .typeText(appName: "Testbed", target: "Message", text: "my secret plan"),
+                app: .testbed, tier: .fullControl),
+            windowTitle: nil, candidates: [field], chosenElement: field)
+
+        _ = await checker.review(request)
+
+        let body = try #require(fakeTransport.sentRequests.first?.httpBody)
+        #expect(!String(decoding: body, as: UTF8.self).contains("my secret plan"))
+    }
+}

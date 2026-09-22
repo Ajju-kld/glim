@@ -94,4 +94,16 @@ public enum StepAction: Sendable, Hashable {
             "Say “\(text)”"
         }
     }
+
+    /// The summary without the text to type, for anything that leaves Glim's process (the
+    /// checker services): they need to know where Glim will type, never what.
+    public var summaryWithoutTypedText: String {
+        switch self {
+        case .typeText(let appName, let target, _):
+            "Type into “\(target)” in \(appName)"
+        case .openApp, .switchApp, .quitApp, .click, .pressKey, .scroll, .moveWindow,
+            .minimizeWindow, .restoreWindow, .speak:
+            summary
+        }
+    }
 }

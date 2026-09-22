@@ -116,7 +116,7 @@ public struct SafetyGate: Sendable {
         guard text.count <= policy.limits.maximumTypedTextLength else {
             return .textTooLong(limit: policy.limits.maximumTypedTextLength)
         }
-        guard !TextSafety.containsKeyLikeCharacters(text) else {
+        guard !TextSafety.containsUnsafeCharacters(text) else {
             return .unsafeText
         }
         return nil

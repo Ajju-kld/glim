@@ -78,7 +78,7 @@ public struct PlanScreener: Sendable {
         guard text.count <= lengthLimit else {
             throw .textTooLong(limit: lengthLimit)
         }
-        guard !TextSafety.containsKeyLikeCharacters(text) else {
+        guard !TextSafety.containsUnsafeCharacters(text) else {
             throw .unsafeText
         }
     }

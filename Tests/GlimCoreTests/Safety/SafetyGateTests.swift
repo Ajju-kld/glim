@@ -307,3 +307,15 @@ struct SafetyGateExecutionTimeTests {
         #expect(gate.evaluate(context) == .deny(.unverifiedApp(appName: "Notes")))
     }
 }
+
+struct TextSafetyTests {
+    @Test(arguments: ["buy milk\u{202E}", "hi\u{200B}there", "a\u{2066}b\u{2069}", "\u{FEFF}start"])
+    func invisibleFormattingCharactersAreRefused(text: String) {
+        #expect(TextSafety.containsUnsafeCharacters(text))
+    }
+
+    @Test(arguments: ["👨‍👩‍👧 dinner", "🏴󠁧󠁢󠁳󠁣󠁴󠁿 flag", "café ☕️", "plain text"])
+    func emojiAndOrdinaryTextAreAllowed(text: String) {
+        #expect(!TextSafety.containsUnsafeCharacters(text))
+    }
+}

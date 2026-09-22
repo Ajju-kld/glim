@@ -62,3 +62,31 @@ struct RiskClassifierTests {
         #expect(classifierWithBlanks.classify(["anything at all"]) == .safe)
     }
 }
+
+struct RiskClassifierFoldingTests {
+    let classifier = RiskClassifier(wordLists: SafetyPolicy.safeDefaults.riskWords)
+
+    @Test(arguments: ["Délete", "DÉLÈTE", "ｄｅｌｅｔｅ", "Ｓｉｇｎ Ｏｕｔ", "Érase"])
+    func accentsAndFullWidthLettersAreFoldedBeforeMatching(label: String) {
+        guard case .forbidden = classifier.classify([label]) else {
+            Issue.record("Expected “\(label)” to be forbidden")
+            return
+        }
+    }
+
+    @Test(arguments: SafetyDefaults.forbiddenPhrases)
+    func everyDefaultForbiddenPhraseIsForbidden(phrase: String) {
+        guard case .forbidden = classifier.classify([phrase.capitalized]) else {
+            Issue.record("Expected “\(phrase)” to be forbidden")
+            return
+        }
+    }
+
+    @Test(arguments: SafetyDefaults.confirmPhrases)
+    func everyDefaultConfirmPhraseAsks(phrase: String) {
+        guard case .needsConfirmation = classifier.classify([phrase.uppercased()]) else {
+            Issue.record("Expected “\(phrase)” to need confirmation")
+            return
+        }
+    }
+}
