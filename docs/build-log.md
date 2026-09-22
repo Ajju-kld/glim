@@ -417,3 +417,35 @@ warned under strict concurrency → replaced with a one-shot supplier (build is 
 live microphone path needs Microphone and Speech Recognition permission → manual test script.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 26: Task runner — Part 3 complete
+
+**What:** `TaskRunner` (+ `TaskRunner+Steps`), `TaskRunnerDependencies`, `TaskEvent`,
+`TaskOutcome`, `ConfirmationRequest`, `PersonDecisions`, `RunnerTiming`, `TakeoverSupervisor`,
+internal `RunnerStop`, and the audit event kinds the runner writes. Target picking got a
+`retryNote` so a retry tells the model why its last pick was rejected (temperature 0 would
+otherwise repeat it).
+
+**Flow:** transcript → bare "stop" trips the kill switch → labels-only snapshot of the front app
+(never for never-touch apps) → plan or question. Questions: text, or a screenshot when the text
+is thin → spoken answer, no actions. Tasks: screen → approval panel → per step: resolve the app,
+fresh snapshot, pick (up to 3 tries with feedback), checkers, gate → deny stops / confirm asks
+(takeover monitor paused while the panel is open; Stop trips the kill switch) → execute →
+verify change.
+
+**Deliberate refinement of spec §8 step 4:** Glim never repeats an action automatically when
+nothing visibly changed — a repeated click could send a message twice. Unchanged steps count
+toward the "3 in a row" limit instead.
+
+**Fail closed:** if the audit log can't be written, the task stops.
+
+**Test fix:** one runner test first failed because the fake executor tripped a different
+`KillSwitch` than the runner's — a harness bug, fixed by sharing one switch.
+
+**TDD:** failed with "cannot find type 'TaskOutcome' in scope"; then 252 tests passed — 17
+runner scenarios: answered, screenshot fallback, never-touch not read, completed, rejected
+before approval, cancelled, runtime forbidden pick, confirm allow/deny, kill switch mid-task,
+retries exhausted, watchdog missing, checker disagreement, Ollama down, spoken stop, no-change
+limit, audit trail.
+
+**Gates:** `All gates passed.`
