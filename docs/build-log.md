@@ -59,3 +59,21 @@ $ # bundle IDs for default tiers read from each app's Info.plist with PlistBuddy
 
 **Lesson:** in zsh, `path` is tied to `$PATH`; naming a loop variable `path` broke `head` and
 every lookup. Use descriptive names like `app_path`.
+
+## 2026-09-23 — Task 1: Package scaffold and action vocabulary
+
+**What:** `Package.swift` (Swift 6 mode, macOS 26, `GlimCore` + tests), `.swift-format`
+(generated from `swift format dump-configuration`, then line length 100, 4 spaces, and the six
+required rules switched on), `scripts/check.sh` (build → test → strict lint) and
+`scripts/format.sh`. Action vocabulary: `ActionKind`, `AllowedKey`, `ScrollDirection`,
+`WindowPreset`, `StepAction`, `Plan`, `ProposedAction`, `AppIdentity`, `UIElementSnapshot`.
+
+**Why:** Every later unit speaks this vocabulary. `StepAction` makes impossible actions
+unrepresentable: there is no case for deleting files or running scripts. `AllowedKey` has no
+Delete key. `UIElementSnapshot.describingTexts` leaves out the value, because a field's content
+may be written by someone else and must not change the risk verdict.
+
+**TDD:** tests written first; `swift build` failed with "target 'GlimCore' ... is empty";
+after implementing, 9 tests (18 cases) passed.
+
+**Gates:** `scripts/check.sh` → `All gates passed.`
