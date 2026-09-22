@@ -8,6 +8,8 @@ public enum LanguageModelError: Error, Sendable, Equatable {
     case badResponse(statusCode: Int, message: String)
     case malformedResponse(reason: String)
     case blockedByNetworkPolicy(NetworkPolicyError)
+    /// The configured model is a cloud model; Glim only uses models that run on this Mac.
+    case modelNotAllowed(modelName: String)
 
     /// One sentence for the popup, including the command that fixes it when there is one.
     public var explanation: String {
@@ -24,6 +26,8 @@ public enum LanguageModelError: Error, Sendable, Equatable {
             "The model's answer could not be read: \(reason)"
         case .blockedByNetworkPolicy:
             "The request was blocked by Glim's network allowlist."
+        case .modelNotAllowed(let modelName):
+            "\(modelName) is not a local model. Glim only uses models that run on this Mac."
         }
     }
 }

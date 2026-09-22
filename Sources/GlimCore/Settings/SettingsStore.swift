@@ -85,6 +85,9 @@ public actor SettingsStore {
     private func apply(
         _ newSettings: GlimSettings, auditKind: AuditEventKind
     ) async throws(SettingsStoreError) {
+        guard PlannerModelPolicy.isLocalModelName(newSettings.plannerModelName) else {
+            throw .plannerModelNotLocal(modelName: newSettings.plannerModelName)
+        }
         let settingsBeforeChange = current
         let loosenings = SafetyChangeClassifier.loosenings(
             from: settingsBeforeChange, to: newSettings)

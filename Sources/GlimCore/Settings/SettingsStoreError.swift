@@ -4,6 +4,8 @@ public enum SettingsStoreError: Error, Sendable, Equatable {
     case ownerNotConfirmed([SettingsLoosening])
     /// Settings changed while the owner was being asked; the change was not applied.
     case settingsChangedDuringConfirmation
+    /// The model name is a cloud model or malformed; only local models are allowed.
+    case plannerModelNotLocal(modelName: String)
     case cannotSave(reason: String)
     case sealKeyUnavailable(reason: String)
     case auditFailed(reason: String)

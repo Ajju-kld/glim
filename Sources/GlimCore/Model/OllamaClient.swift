@@ -91,6 +91,9 @@ public struct OllamaClient: LanguageModel {
     private func send(path: String, method: String, body: Data?) async throws(LanguageModelError)
         -> Data
     {
+        guard PlannerModelPolicy.isLocalModelName(modelName) else {
+            throw .modelNotAllowed(modelName: modelName)
+        }
         let url: URL
         do {
             url = try NetworkEndpoint.ollama.url(path: path)

@@ -32,6 +32,12 @@ public enum SafetyChangeClassifier {
             .subtracting(newSettings.jev.excludedBundleIdentifiers)
             .sorted()
             .map { .jevExclusionRemoved(bundleIdentifier: $0) }
+        // The model decides what is planned and where data is processed, so any change counts.
+        if newSettings.plannerModelName != oldSettings.plannerModelName {
+            loosenings.append(
+                .plannerModelChanged(
+                    from: oldSettings.plannerModelName, to: newSettings.plannerModelName))
+        }
         return loosenings
     }
 
