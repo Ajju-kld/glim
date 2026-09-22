@@ -157,3 +157,19 @@ Emoji with zero-width joiners stay allowed (review focus 2).
 gate tests passed, 79 in total.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Tasks 8 and 9: Plan screener and kill switch
+
+**What:** `PlanScreener` → `readyForApproval(ScreenedPlan)` or `rejected(violation, stepNumber:)`;
+`ScreenedPlan`, `PlanScreeningOutcome`. `KillSwitch` (a `Mutex`-guarded, sticky trip with
+handlers run outside the lock), `TripReason`, `TripHandlerToken`.
+
+**Why:** A plan containing a step that would be denied is never shown for approval (spec §9.2):
+unknown app, tier forbids the step, forbidden target words, typed line breaks or overlong text,
+an empty plan, or more steps than the action limit. The kill switch trips exactly once even
+with 100 concurrent trips; handlers may read the switch without deadlocking;
+`ensureArmed()` is what the executor calls before every OS call.
+
+**TDD:** failed to compile (types missing); then 100 tests passed.
+
+**Gates:** `All gates passed.`
