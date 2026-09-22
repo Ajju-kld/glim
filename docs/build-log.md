@@ -136,3 +136,24 @@ are exact and never sleep.
 **TDD:** failed with "cannot find 'PlanMatcher' / 'ActionLimiter' in scope"; then 52 tests passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 7: Safety gate
+
+**What:** `SafetyGate.evaluate(_:)` → `allow` / `needsConfirmation([reasons])` / `deny(violation)`,
+plus `GateContext`, `SafetyState`, `ScreenedStep`, `GuardViolation` (with popup title and
+explanation), `ConfirmationReason`, `GateDecision`, `TextSafety`.
+
+**Why:** This is the "AI proposes, code decides" core (§9.2). Check order: kill switch →
+watchdog → tier permission → same kind and same app as the approved step → element is from the
+fresh table → not a password field → typed text exactly as approved, ≤ 500 characters, no
+line breaks or control characters → limits → forbidden phrases. Then confirmation reasons
+accumulate: confirm phrase, Return key, plan mismatch, checker concerns, supervised app or quit.
+
+**Found while building:** typed text containing `\n` would act like Return and send a chat
+message without the Return confirmation. Added the `unsafeText` guard (and updated spec §9.2).
+Emoji with zero-width joiners stay allowed (review focus 2).
+
+**TDD:** tests failed to compile ("cannot infer contextual base … 'unsafeText'"); then all 27
+gate tests passed, 79 in total.
+
+**Gates:** `All gates passed.`
