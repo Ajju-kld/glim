@@ -45,14 +45,28 @@ public struct Planner: Sendable {
     }
 
     /// Asks which element performs `step`, offering only elements the step can target.
+    ///
+    /// - Parameters:
+    ///   - step: The approved step.
+    ///   - goal: The person's request.
+    ///   - table: The fresh element table.
+    ///   - retryNote: Why the previous answer was rejected; the model runs at temperature 0,
+    ///     so a retry without feedback would repeat the same answer.
+    /// - Returns: The chosen compatible element, or the model's report that none fits.
+    /// - Throws: ``PlannerError`` when the model fails or answers with an unusable pick.
     public func pickTarget(
-        for step: StepAction, goal: String, among table: [UIElementSnapshot]
+        for step: StepAction, goal: String, among table: [UIElementSnapshot],
+        retryNote: String? = nil
     ) async throws(PlannerError) -> TargetChoice {
         let candidates = ElementRoles.candidates(in: table, for: step.kind)
+        var prompt = Self.targetPrompt(for: step, goal: goal, candidates: candidates)
+        if let retryNote {
+            prompt += "\nYour previous answer was rejected: \(retryNote)"
+        }
         let answerText = try await ask(
             LanguageModelRequest(
                 systemPrompt: PlannerPrompts.targetPicking,
-                userPrompt: Self.targetPrompt(for: step, goal: goal, candidates: candidates),
+                userPrompt: prompt,
                 responseSchema: PlannerSchemas.target))
         let answer = try decode(TargetAnswer.self, from: answerText)
         if answer.blocked {

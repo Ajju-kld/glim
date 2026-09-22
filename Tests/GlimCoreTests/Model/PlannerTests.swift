@@ -188,6 +188,17 @@ struct PlannerTests {
         #expect(!prompt.contains("New Note"))
     }
 
+    @Test func retryTellsTheModelWhatWasWrong() async throws {
+        let model = FakeLanguageModel(answer: #"{"elementNumber":1,"blocked":false}"#)
+
+        _ = try await Planner(languageModel: model).pickTarget(
+            for: .click(appName: "Notes", target: "New Note"), goal: context.goal,
+            among: [newNoteButton], retryNote: "Element 7 is not in the list.")
+
+        let prompt = try #require(model.requests.first?.userPrompt)
+        #expect(prompt.contains("Your previous answer was rejected: Element 7 is not in the list."))
+    }
+
     // MARK: - Questions
 
     @Test func questionIsAnsweredFromScreenText() async throws {
