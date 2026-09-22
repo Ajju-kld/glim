@@ -58,7 +58,7 @@ public struct ElementTableBuilder: Sendable {
     }
 
     /// The label for an actionable control, or nil when the node isn't one Glim may list.
-    private static func label(for node: AccessibilityNode) -> String? {
+    static func label(for node: AccessibilityNode) -> String? {
         let isClickable = ElementRoles.clickableRoles.contains(node.role)
         let isTextEntry = ElementRoles.textEntryRoles.contains(node.role)
         guard isClickable || isTextEntry, node.isEnabled, node.width > 0, node.height > 0 else {

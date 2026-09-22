@@ -12,6 +12,9 @@ public struct GateContext: Sendable {
     public let checkerConcerns: [ConfirmationReason]
     /// Kill switch and watchdog state.
     public let safetyState: SafetyState
+    /// For Return: the texts of what it would activate (the focused control and the window's
+    /// default button), so they are checked against the risk phrases like a click target.
+    public let returnKeyTargetTexts: [String]
 
     /// Creates a gate context.
     public init(
@@ -20,7 +23,8 @@ public struct GateContext: Sendable {
         currentElements: [UIElementSnapshot],
         limitViolation: LimitViolation?,
         checkerConcerns: [ConfirmationReason],
-        safetyState: SafetyState
+        safetyState: SafetyState,
+        returnKeyTargetTexts: [String] = []
     ) {
         self.approvedStep = approvedStep
         self.proposedAction = proposedAction
@@ -28,5 +32,6 @@ public struct GateContext: Sendable {
         self.limitViolation = limitViolation
         self.checkerConcerns = checkerConcerns
         self.safetyState = safetyState
+        self.returnKeyTargetTexts = returnKeyTargetTexts
     }
 }

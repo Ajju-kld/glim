@@ -122,3 +122,16 @@ struct PlanScreenerTests {
                 == .rejected(.limitReached(.tooManyActions(limit: limit)), stepNumber: nil))
     }
 }
+
+struct PlanScreenerSignatureTests {
+    @Test func openingAnUnverifiedAppIsRejectedBeforeApproval() {
+        let screener = PlanScreener(policy: .safeDefaults)
+
+        let outcome = screener.screen(Plan(goal: "open notes", steps: [.openApp(appName: "Notes")]))
+        { _ in
+            .impostorNotes
+        }
+
+        #expect(outcome == .rejected(.unverifiedApp(appName: "Notes"), stepNumber: 1))
+    }
+}

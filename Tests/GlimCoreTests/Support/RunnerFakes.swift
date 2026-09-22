@@ -6,14 +6,25 @@ import Synchronization
 /// Returns the same table on every read; with `changesEveryRead`, the readable text changes
 /// each time so the runner sees that the screen changed after an action.
 final class ScriptedScreenReader: ScreenReading {
-    private let table: ElementTable
+    private let currentTable: Mutex<ElementTable>
     private let changesEveryRead: Bool
+    private let returnTargetTexts: [String]
     private let readCount = Mutex(0)
     private let readApps = Mutex<[String]>([])
 
-    init(table: ElementTable, changesEveryRead: Bool = true) {
-        self.table = table
+    init(table: ElementTable, changesEveryRead: Bool = true, returnTargetTexts: [String] = []) {
+        currentTable = Mutex(table)
         self.changesEveryRead = changesEveryRead
+        self.returnTargetTexts = returnTargetTexts
+    }
+
+    /// Simulates the screen changing, for example while a panel waits for the person.
+    func replaceTable(with newTable: ElementTable) {
+        currentTable.withLock { $0 = newTable }
+    }
+
+    func returnKeyTargetTexts(in app: ResolvedApp) async -> [String] {
+        returnTargetTexts
     }
 
     var appsRead: [String] {
@@ -27,6 +38,7 @@ final class ScriptedScreenReader: ScreenReading {
             count += 1
             return count
         }
+        let table = currentTable.withLock { $0 }
         let readableText =
             changesEveryRead ? "\(table.readableText) read \(readNumber)" : table.readableText
         let tableForThisRead = ElementTable(
@@ -71,12 +83,17 @@ final class RecordingExecutor: ActionPerforming {
 final class ScriptedDecisions: PersonDecisions {
     private let approvesPlans: Bool
     private let confirmAnswers: Mutex<[Bool]>
+    private let whileConfirming: (@Sendable () -> Void)?
     private let recordedPlans = Mutex<[ScreenedPlan]>([])
     private let recordedConfirmations = Mutex<[ConfirmationRequest]>([])
 
-    init(approvesPlans: Bool = true, confirmAnswers: [Bool] = []) {
+    init(
+        approvesPlans: Bool = true, confirmAnswers: [Bool] = [],
+        whileConfirming: (@Sendable () -> Void)? = nil
+    ) {
         self.approvesPlans = approvesPlans
         self.confirmAnswers = Mutex(confirmAnswers)
+        self.whileConfirming = whileConfirming
     }
 
     var plansShown: [ScreenedPlan] {
@@ -94,6 +111,7 @@ final class ScriptedDecisions: PersonDecisions {
 
     func confirmAction(_ request: ConfirmationRequest) async -> Bool {
         recordedConfirmations.withLock { $0.append(request) }
+        whileConfirming?()
         return confirmAnswers.withLock { answers in answers.isEmpty ? false : answers.removeFirst()
         }
     }

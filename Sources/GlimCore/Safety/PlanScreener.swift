@@ -59,6 +59,9 @@ public struct PlanScreener: Sendable {
         guard AppTrustPolicy.permission(for: action.kind, in: tier) != .denied else {
             throw .blockedByTier(appName: app.displayName, tier: tier, action: action.kind)
         }
+        if action.kind == .openApp, !app.hasValidSignature {
+            throw .unverifiedApp(appName: app.displayName)
+        }
         if let target = action.targetDescription,
             case .forbidden(let matchedPhrase) = riskClassifier.classify([target])
         {

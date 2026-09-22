@@ -211,7 +211,7 @@ struct SafetyGateTests {
             stepApp: .messages,
             proposedAction: ProposedAction(kind: .pressKey, targetApp: .messages, key: .returnKey))
 
-        #expect(gate.evaluate(context) == .needsConfirmation([.pressReturn]))
+        #expect(gate.evaluate(context) == .needsConfirmation([.pressReturn(activates: nil)]))
     }
 
     @Test func offScriptElementAsksThePerson() {
@@ -264,5 +264,46 @@ struct SafetyGateTests {
                     concern,
                     .supervisedApp(appName: "Cursor"),
                 ]))
+    }
+}
+
+struct SafetyGateExecutionTimeTests {
+    let gate = SafetyGate(policy: .safeDefaults)
+
+    @Test func returnThatWouldActivateAForbiddenControlIsDenied() {
+        let context = makeGateContext(
+            step: .pressKey(appName: "Messages", key: .returnKey),
+            stepApp: .messages,
+            proposedAction: ProposedAction(kind: .pressKey, targetApp: .messages, key: .returnKey),
+            returnKeyTargetTexts: ["Delete Conversation"])
+
+        #expect(
+            gate.evaluate(context)
+                == .deny(
+                    .forbiddenAction(matchedPhrase: "delete", elementLabel: "Delete Conversation")))
+    }
+
+    @Test func returnConfirmationNamesWhatItActivates() {
+        let context = makeGateContext(
+            step: .pressKey(appName: "Messages", key: .returnKey),
+            stepApp: .messages,
+            proposedAction: ProposedAction(kind: .pressKey, targetApp: .messages, key: .returnKey),
+            returnKeyTargetTexts: ["Send"])
+
+        #expect(
+            gate.evaluate(context)
+                == .needsConfirmation([
+                    .riskyWord(matchedPhrase: "send", elementLabel: "Send"),
+                    .pressReturn(activates: "Send"),
+                ]))
+    }
+
+    @Test func openingAnAppWithAnUnverifiedSignatureIsDenied() {
+        let context = makeGateContext(
+            step: .openApp(appName: "Notes"),
+            stepApp: .impostorNotes,
+            proposedAction: ProposedAction(kind: .openApp, targetApp: .impostorNotes))
+
+        #expect(gate.evaluate(context) == .deny(.unverifiedApp(appName: "Notes")))
     }
 }

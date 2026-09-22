@@ -48,6 +48,10 @@ public struct SafetyGate: Sendable {
             return .blockedByTier(
                 appName: action.targetApp.displayName, tier: tier, action: action.kind)
         }
+        // Opening launches the app's own code, so it must prove who it is.
+        if action.kind == .openApp, !action.targetApp.hasValidSignature {
+            return .unverifiedApp(appName: action.targetApp.displayName)
+        }
         if let planViolation = planViolation(in: context) {
             return planViolation
         }
@@ -61,8 +65,8 @@ public struct SafetyGate: Sendable {
             return .limitReached(limitViolation)
         }
         if case .forbidden(let matchedPhrase) = riskLevel {
-            let elementLabel = action.targetElement?.label ?? context.approvedStep.action.summary
-            return .forbiddenAction(matchedPhrase: matchedPhrase, elementLabel: elementLabel)
+            return .forbiddenAction(
+                matchedPhrase: matchedPhrase, elementLabel: riskTargetLabel(of: context))
         }
         return nil
     }
@@ -118,8 +122,12 @@ public struct SafetyGate: Sendable {
         return nil
     }
 
-    /// Risk words are checked on the chosen element and on the approved target description.
+    /// Risk words are checked on the chosen element and the approved target description — and,
+    /// for Return, on whatever Return would activate.
     private func riskLevel(of context: GateContext) -> RiskLevel {
+        if Self.isReturnKey(context.proposedAction) {
+            return riskClassifier.classify(context.returnKeyTargetTexts)
+        }
         guard context.proposedAction.kind.needsTargetElement else {
             return .safe
         }
@@ -130,17 +138,36 @@ public struct SafetyGate: Sendable {
         return riskClassifier.classify(texts)
     }
 
+    /// The label shown when a risk phrase matched: the chosen element, what Return activates,
+    /// or the step itself.
+    private func riskTargetLabel(of context: GateContext) -> String {
+        if let elementLabel = context.proposedAction.targetElement?.label {
+            return elementLabel
+        }
+        if Self.isReturnKey(context.proposedAction),
+            let activatedControl = context.returnKeyTargetTexts.first
+        {
+            return activatedControl
+        }
+        return context.approvedStep.action.summary
+    }
+
+    private static func isReturnKey(_ action: ProposedAction) -> Bool {
+        action.kind == .pressKey && action.key == .returnKey
+    }
+
     private func confirmationReasons(
         for context: GateContext, permission: TierPermission, riskLevel: RiskLevel
     ) -> [ConfirmationReason] {
         let action = context.proposedAction
         var reasons: [ConfirmationReason] = []
         if case .needsConfirmation(let matchedPhrase) = riskLevel {
-            let elementLabel = action.targetElement?.label ?? context.approvedStep.action.summary
-            reasons.append(.riskyWord(matchedPhrase: matchedPhrase, elementLabel: elementLabel))
+            reasons.append(
+                .riskyWord(matchedPhrase: matchedPhrase, elementLabel: riskTargetLabel(of: context))
+            )
         }
-        if action.kind == .pressKey, action.key == .returnKey {
-            reasons.append(.pressReturn)
+        if Self.isReturnKey(action) {
+            reasons.append(.pressReturn(activates: context.returnKeyTargetTexts.first))
         }
         if let element = action.targetElement,
             let plannedTarget = context.approvedStep.action.targetDescription,

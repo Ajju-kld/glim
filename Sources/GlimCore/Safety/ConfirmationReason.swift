@@ -2,7 +2,7 @@
 /// confirmation panel lists them all.
 public enum ConfirmationReason: Sendable, Equatable {
     case riskyWord(matchedPhrase: String, elementLabel: String)
-    case pressReturn
+    case pressReturn(activates: String?)
     case planMismatch(planned: String, chosen: String)
     case checkerDisagrees(checkerName: String, checkerChoice: String)
     case checkerOffline(checkerName: String)
@@ -14,8 +14,9 @@ public enum ConfirmationReason: Sendable, Equatable {
         switch self {
         case .riskyWord(let matchedPhrase, let elementLabel):
             "“\(elementLabel)” contains “\(matchedPhrase)”."
-        case .pressReturn:
-            "Pressing Return can send or submit."
+        case .pressReturn(let activatedControl):
+            activatedControl.map { "Pressing Return would activate “\($0)”." }
+                ?? "Pressing Return can send or submit."
         case .planMismatch(let planned, let chosen):
             "The plan said “\(planned)”, but the AI chose “\(chosen)”."
         case .checkerDisagrees(let checkerName, let checkerChoice):

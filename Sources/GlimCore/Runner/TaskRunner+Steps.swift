@@ -20,12 +20,10 @@ extension TaskRunner {
             return
         }
         let app = try resolveForExecution(step)
+        try ensureRunsInApprovedApp(app, step: step)
         await dependencies.narrator.say(step.action.summary)
 
-        let readsScreen =
-            step.action.kind.needsTargetElement || step.action.kind == .pressKey
-            || step.action.kind == .scroll
-        let snapshotBefore = readsScreen ? try await snapshot(of: app) : nil
+        let snapshotBefore = Self.readsScreen(step.action) ? try await snapshot(of: app) : nil
         var target: UIElementSnapshot?
         var checkerConcerns: [ConfirmationReason] = []
         if step.action.kind.needsTargetElement, let snapshotBefore {
@@ -34,23 +32,29 @@ extension TaskRunner {
         }
         try await pause(for: limiter.waitBeforeNextAction(at: .now))
 
-        let proposedAction = ProposedAction(
-            kind: step.action.kind, targetApp: app.identity, targetElement: target,
-            text: step.action.approvedText, key: Self.key(of: step.action))
+        let returnKeyTargetTexts = await returnKeyTargetTexts(for: step.action, in: app)
         let decision = gate.evaluate(
-            GateContext(
-                approvedStep: step,
-                proposedAction: proposedAction,
-                currentElements: snapshotBefore?.table.elements ?? [],
-                limitViolation: limiter.violation(at: .now),
-                checkerConcerns: checkerConcerns,
-                safetyState: SafetyState(
-                    isKillSwitchArmed: dependencies.killSwitch.isArmed,
-                    isWatchdogAlive: dependencies.isWatchdogAlive())))
+            gateContext(
+                for: step, app: app, target: target, elements: snapshotBefore?.table.elements ?? [],
+                limiter: limiter, checkerConcerns: checkerConcerns,
+                returnKeyTargetTexts: returnKeyTargetTexts))
         try await audit(.gateDecision, "\(step.action.summary): \(decision)")
-        try await handle(
-            decision, for: step, app: app, target: target, takeoverSupervisor: takeoverSupervisor,
-            onEvent: onEvent)
+        var executionTarget = target
+        switch decision {
+        case .allow:
+            break
+        case .deny(let violation):
+            throw RunnerStop.blocked(violation, stepNumber: step.number)
+        case .needsConfirmation(let reasons):
+            let request = ConfirmationRequest(
+                step: step, appName: app.identity.displayName,
+                elementLabel: target?.label ?? returnKeyTargetTexts.first,
+                textToType: step.action.approvedText, reasons: reasons)
+            try await askPerson(request, takeoverSupervisor: takeoverSupervisor, onEvent: onEvent)
+            executionTarget = try await recheckAfterConfirmation(
+                of: step, app: app, target: target, confirmedReasons: reasons,
+                checkerConcerns: checkerConcerns, limiter: limiter)
+        }
 
         try ensureArmed()
         do {
@@ -73,34 +77,121 @@ extension TaskRunner {
         limiter.beginNextStep()
     }
 
-    private func handle(
-        _ decision: GateDecision,
-        for step: ScreenedStep,
-        app: ResolvedApp,
-        target: UIElementSnapshot?,
+    private func askPerson(
+        _ request: ConfirmationRequest,
         takeoverSupervisor: TakeoverSupervisor,
         onEvent: @escaping @Sendable (TaskEvent) -> Void
     ) async throws {
+        takeoverSupervisor.stop()
+        onEvent(.awaitingConfirmation(request))
+        let allowed = await dependencies.decisions.confirmAction(request)
+        try await audit(.confirmationAnswered, allowed ? "Allowed once" : "Stopped")
+        guard allowed else {
+            dependencies.killSwitch.trip(.panelCancelled)
+            throw RunnerStop.stopped(.panelCancelled)
+        }
+        try ensureArmed()
+        takeoverSupervisor.start()
+    }
+
+    /// The person may take up to a minute to decide, so everything is checked again before
+    /// acting: a fresh screen, the same control, the kill switch, the watchdog, the limits, and
+    /// what Return would activate. Anything the person did not already see stops the task.
+    private func recheckAfterConfirmation(
+        of step: ScreenedStep,
+        app: ResolvedApp,
+        target: UIElementSnapshot?,
+        confirmedReasons: [ConfirmationReason],
+        checkerConcerns: [ConfirmationReason],
+        limiter: ActionLimiter
+    ) async throws -> UIElementSnapshot? {
+        var freshTarget = target
+        var freshElements: [UIElementSnapshot] = []
+        if Self.readsScreen(step.action) {
+            freshElements = try await snapshot(of: app).table.elements
+            if let target {
+                guard
+                    let sameControl = freshElements.first(where: {
+                        $0.identifiesSameControl(as: target)
+                    })
+                else {
+                    throw RunnerStop.blocked(
+                        .changedWhileWaiting(description: target.label), stepNumber: step.number)
+                }
+                freshTarget = sameControl
+            }
+        }
+        let decision = gate.evaluate(
+            gateContext(
+                for: step, app: app, target: freshTarget, elements: freshElements, limiter: limiter,
+                checkerConcerns: checkerConcerns,
+                returnKeyTargetTexts: await returnKeyTargetTexts(for: step.action, in: app)))
+        try await audit(.gateDecision, "After confirmation — \(step.action.summary): \(decision)")
         switch decision {
         case .allow:
-            return
+            return freshTarget
         case .deny(let violation):
             throw RunnerStop.blocked(violation, stepNumber: step.number)
         case .needsConfirmation(let reasons):
-            let request = ConfirmationRequest(
-                step: step, appName: app.identity.displayName, elementLabel: target?.label,
-                textToType: step.action.approvedText, reasons: reasons)
-            takeoverSupervisor.stop()
-            onEvent(.awaitingConfirmation(request))
-            let allowed = await dependencies.decisions.confirmAction(request)
-            try await audit(.confirmationAnswered, allowed ? "Allowed once" : "Stopped")
-            guard allowed else {
-                dependencies.killSwitch.trip(.panelCancelled)
-                throw RunnerStop.stopped(.panelCancelled)
+            guard reasons.allSatisfy(confirmedReasons.contains) else {
+                throw RunnerStop.blocked(
+                    .changedWhileWaiting(description: step.action.summary), stepNumber: step.number)
             }
-            try ensureArmed()
-            takeoverSupervisor.start()
+            return freshTarget
         }
+    }
+
+    private func gateContext(
+        for step: ScreenedStep,
+        app: ResolvedApp,
+        target: UIElementSnapshot?,
+        elements: [UIElementSnapshot],
+        limiter: ActionLimiter,
+        checkerConcerns: [ConfirmationReason],
+        returnKeyTargetTexts: [String]
+    ) -> GateContext {
+        GateContext(
+            approvedStep: step,
+            proposedAction: ProposedAction(
+                kind: step.action.kind, targetApp: app.identity, targetElement: target,
+                text: step.action.approvedText, key: Self.key(of: step.action)),
+            currentElements: elements,
+            limitViolation: limiter.violation(at: .now),
+            checkerConcerns: checkerConcerns,
+            safetyState: SafetyState(
+                isKillSwitchArmed: dependencies.killSwitch.isArmed,
+                isWatchdogAlive: dependencies.isWatchdogAlive()),
+            returnKeyTargetTexts: returnKeyTargetTexts)
+    }
+
+    private func returnKeyTargetTexts(for action: StepAction, in app: ResolvedApp) async -> [String]
+    {
+        guard Self.key(of: action) == .returnKey else {
+            return []
+        }
+        return await dependencies.screenReader.returnKeyTargetTexts(in: app)
+    }
+
+    /// The app found at run time must be the approved one, and its tier must still allow the
+    /// step — checked before its screen is read or sent to any checker.
+    private func ensureRunsInApprovedApp(_ app: ResolvedApp, step: ScreenedStep) throws {
+        guard app.identity.bundleIdentifier == step.app?.bundleIdentifier else {
+            throw RunnerStop.blocked(
+                .notInPlan(
+                    planned: step.action.summary, proposed: "act in \(app.identity.displayName)"),
+                stepNumber: step.number)
+        }
+        let tier = dependencies.safetyPolicy.appTrust.tier(for: app.identity)
+        guard AppTrustPolicy.permission(for: step.action.kind, in: tier) != .denied else {
+            throw RunnerStop.blocked(
+                .blockedByTier(
+                    appName: app.identity.displayName, tier: tier, action: step.action.kind),
+                stepNumber: step.number)
+        }
+    }
+
+    private static func readsScreen(_ action: StepAction) -> Bool {
+        action.kind.needsTargetElement || action.kind == .pressKey || action.kind == .scroll
     }
 
     // MARK: - Target choice

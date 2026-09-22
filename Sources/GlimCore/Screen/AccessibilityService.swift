@@ -16,7 +16,7 @@ public actor AccessibilityService: ScreenReading {
         }
     }
 
-    private struct NodeAttributes {
+    struct NodeAttributes {
         var role = ""
         var subrole: String?
         var title: String?
@@ -87,6 +87,40 @@ public actor AccessibilityService: ScreenReading {
         )
     }
 
+    /// What pressing Return would activate in `app`: the focused control and the focused window's
+    /// default button. Empty when nothing can be read (the gate then still asks the person).
+    public func returnKeyTargetTexts(in app: ResolvedApp) -> [String] {
+        guard Self.isTrusted, let processIdentifier = app.processIdentifier else {
+            return []
+        }
+        let appElement = applicationElement(for: processIdentifier)
+        var candidates: [AXUIElement] = []
+        if let focusedElement = Self.elementAttribute(kAXFocusedUIElementAttribute, of: appElement)
+        {
+            candidates.append(focusedElement)
+        }
+        do {
+            let window = try focusedWindow(of: appElement, appName: app.identity.displayName)
+            if let defaultButton = Self.elementAttribute(kAXDefaultButtonAttribute, of: window) {
+                candidates.append(defaultButton)
+            }
+        } catch {
+            // No readable window means no default button; the focused control (if any) remains.
+        }
+        var texts: [String] = []
+        for candidate in candidates {
+            let node = shallowNode(for: candidate)
+            let nodeTexts = [
+                ElementTableBuilder.label(for: node), node.title, node.elementDescription,
+                node.helpText,
+            ]
+            for text in nodeTexts.compactMap({ $0 }) where !text.isEmpty && !texts.contains(text) {
+                texts.append(text)
+            }
+        }
+        return texts
+    }
+
     // MARK: - Shared with actions
 
     func applicationElement(for processIdentifier: pid_t) -> AXUIElement {
@@ -137,6 +171,40 @@ public actor AccessibilityService: ScreenReading {
         return handles[handleIndex]
     }
 
+    /// Reads a live element and a couple of levels of its children, without touching the
+    /// current table's handles — for re-checking a control right before acting on it.
+    func shallowNode(for element: AXUIElement, remainingDepth: Int = 2) -> AccessibilityNode {
+        let attributes = Self.attributes(of: element)
+        let children =
+            remainingDepth > 0
+            ? attributes.children.map { shallowNode(for: $0, remainingDepth: remainingDepth - 1) }
+            : []
+        return AccessibilityNode(
+            handleIndex: 0,
+            role: attributes.role,
+            subrole: attributes.subrole,
+            title: attributes.title,
+            elementDescription: attributes.elementDescription,
+            placeholder: attributes.placeholder,
+            helpText: attributes.helpText,
+            identifier: attributes.identifier,
+            value: attributes.value,
+            isEnabled: attributes.isEnabled,
+            width: attributes.size.width,
+            height: attributes.size.height,
+            children: children)
+    }
+
+    static func elementAttribute(_ attributeName: String, of element: AXUIElement) -> AXUIElement? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attributeName as CFString, &value) == .success,
+            let value, CFGetTypeID(value) == AXUIElementGetTypeID()
+        else {
+            return nil
+        }
+        return unsafeDowncast(value, to: AXUIElement.self)
+    }
+
     static func stringAttribute(_ attributeName: String, of element: AXUIElement) -> String? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attributeName as CFString, &value) == .success
@@ -182,7 +250,7 @@ public actor AccessibilityService: ScreenReading {
     }
 
     /// Copies every attribute in one round trip to the app.
-    private static func attributes(of element: AXUIElement) -> NodeAttributes {
+    static func attributes(of element: AXUIElement) -> NodeAttributes {
         var values: CFArray?
         let status = AXUIElementCopyMultipleAttributeValues(
             element, attributeNames as CFArray, AXCopyMultipleAttributeOptions(rawValue: 0), &values

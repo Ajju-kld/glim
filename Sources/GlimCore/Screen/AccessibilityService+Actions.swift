@@ -120,21 +120,9 @@ extension AccessibilityService {
     private func verifiedElement(
         number: Int, expected: UIElementSnapshot, processIdentifier: pid_t
     ) throws(ExecutionError) -> AXUIElement {
-        guard let element = liveElement(number: number, processIdentifier: processIdentifier) else {
-            throw .elementChanged(label: expected.label)
-        }
-        let currentRole = Self.stringAttribute(kAXRoleAttribute, of: element)
-        let currentSubrole = Self.stringAttribute(kAXSubroleAttribute, of: element)
-        let isUnchanged =
-            currentRole == expected.role
-            && currentSubrole == expected.subrole
-            && Self.stringAttribute(kAXTitleAttribute, of: element) == expected.title
-            && Self.stringAttribute(kAXDescriptionAttribute, of: element)
-                == expected.elementDescription
-        let isSecure =
-            currentRole == UIElementSnapshot.secureTextRole
-            || currentSubrole == UIElementSnapshot.secureTextRole
-        guard isUnchanged, !isSecure else {
+        guard let element = liveElement(number: number, processIdentifier: processIdentifier),
+            ElementIdentityCheck.liveNode(shallowNode(for: element), isSameControlAs: expected)
+        else {
             throw .elementChanged(label: expected.label)
         }
         return element

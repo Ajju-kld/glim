@@ -60,4 +60,13 @@ public struct UIElementSnapshot: Sendable, Hashable {
     public var describingTexts: [String] {
         [label, title, elementDescription, helpText, identifier].compactMap { $0 }
     }
+
+    /// Whether `other` is the same control at the same position in its table: everything that
+    /// describes it must match; only the value (its content) may differ.
+    public func identifiesSameControl(as other: UIElementSnapshot) -> Bool {
+        number == other.number && role == other.role && subrole == other.subrole
+            && label == other.label && title == other.title
+            && elementDescription == other.elementDescription && helpText == other.helpText
+            && identifier == other.identifier
+    }
 }

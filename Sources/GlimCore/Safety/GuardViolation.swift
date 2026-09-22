@@ -13,6 +13,8 @@ public enum GuardViolation: Error, Sendable, Equatable {
     case emptyPlan
     case limitReached(LimitViolation)
     case forbiddenAction(matchedPhrase: String, elementLabel: String)
+    case unverifiedApp(appName: String)
+    case changedWhileWaiting(description: String)
 
     /// Short headline for the guard popup.
     public var title: String {
@@ -29,6 +31,8 @@ public enum GuardViolation: Error, Sendable, Equatable {
         case .emptyPlan: "Empty plan"
         case .limitReached: "Safety limit reached"
         case .forbiddenAction: "Forbidden action"
+        case .unverifiedApp: "App signature not verified"
+        case .changedWhileWaiting: "The screen changed while you decided"
         }
     }
 
@@ -59,6 +63,10 @@ public enum GuardViolation: Error, Sendable, Equatable {
             limitViolation.explanation
         case .forbiddenAction(let matchedPhrase, let elementLabel):
             "“\(elementLabel)” matches the forbidden phrase “\(matchedPhrase)”."
+        case .unverifiedApp(let appName):
+            "\(appName) isn't signed by an Apple-issued certificate under its own identifier, so Glim won't open it."
+        case .changedWhileWaiting(let description):
+            "“\(description)” changed while Glim waited for you, so it stopped instead of acting on something new."
         }
     }
 }

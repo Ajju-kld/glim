@@ -12,7 +12,8 @@ func makeGateContext(
     currentElements: [UIElementSnapshot] = [],
     limitViolation: LimitViolation? = nil,
     checkerConcerns: [ConfirmationReason] = [],
-    safetyState: SafetyState = .allClear
+    safetyState: SafetyState = .allClear,
+    returnKeyTargetTexts: [String] = []
 ) -> GateContext {
     let approvedStep = ScreenedStep(
         number: 1,
@@ -25,5 +26,6 @@ func makeGateContext(
         currentElements: currentElements,
         limitViolation: limitViolation,
         checkerConcerns: checkerConcerns,
-        safetyState: safetyState)
+        safetyState: safetyState,
+        returnKeyTargetTexts: returnKeyTargetTexts)
 }
