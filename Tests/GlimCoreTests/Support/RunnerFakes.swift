@@ -65,9 +65,14 @@ final class RecordingScreenshotter: ScreenshotCapturing {
 final class RecordingExecutor: ActionPerforming {
     private let performedActions = Mutex<[ExecutableAction]>([])
     private let killSwitchToTripOnFirstAction: KillSwitch?
+    private let afterEachAction: (@Sendable () -> Void)?
 
-    init(killSwitchToTripOnFirstAction: KillSwitch? = nil) {
+    init(
+        killSwitchToTripOnFirstAction: KillSwitch? = nil,
+        afterEachAction: (@Sendable () -> Void)? = nil
+    ) {
         self.killSwitchToTripOnFirstAction = killSwitchToTripOnFirstAction
+        self.afterEachAction = afterEachAction
     }
 
     var performed: [ExecutableAction] {
@@ -77,6 +82,7 @@ final class RecordingExecutor: ActionPerforming {
     func perform(_ action: ExecutableAction) async throws(ExecutionError) {
         performedActions.withLock { $0.append(action) }
         killSwitchToTripOnFirstAction?.trip(.killHotkey)
+        afterEachAction?()
     }
 }
 
@@ -141,5 +147,22 @@ final class EventRecorder: Sendable {
 
     func record(_ event: TaskEvent) {
         recordedEvents.withLock { $0.append(event) }
+    }
+}
+
+/// A settings value the test can change while a task runs.
+final class ChangingPolicy: Sendable {
+    private let policy: Mutex<SafetyPolicy>
+
+    init(_ initialPolicy: SafetyPolicy) {
+        policy = Mutex(initialPolicy)
+    }
+
+    var current: SafetyPolicy {
+        policy.withLock { $0 }
+    }
+
+    func update(_ change: (inout SafetyPolicy) -> Void) {
+        policy.withLock { change(&$0) }
     }
 }

@@ -11,6 +11,9 @@ extension TaskRunner {
         onEvent: @escaping @Sendable (TaskEvent) -> Void
     ) async throws {
         try ensureArmed()
+        let policy = currentPolicy
+        let gate = SafetyGate(policy: policy)
+        limiter.updateLimits(policy.limits)
         onEvent(
             .acting(
                 stepNumber: step.number, totalSteps: plan.steps.count, summary: step.action.summary)
@@ -20,7 +23,7 @@ extension TaskRunner {
             return
         }
         let app = try resolveForExecution(step)
-        try ensureRunsInApprovedApp(app, step: step)
+        try ensureRunsInApprovedApp(app, step: step, policy: policy)
         await dependencies.narrator.say(step.action.summary)
 
         let snapshotBefore = Self.readsScreen(step.action) ? try await snapshot(of: app) : nil
@@ -121,7 +124,7 @@ extension TaskRunner {
                 freshTarget = sameControl
             }
         }
-        let decision = gate.evaluate(
+        let decision = SafetyGate(policy: currentPolicy).evaluate(
             gateContext(
                 for: step, app: app, target: freshTarget, elements: freshElements, limiter: limiter,
                 checkerConcerns: checkerConcerns,
@@ -174,14 +177,16 @@ extension TaskRunner {
 
     /// The app found at run time must be the approved one, and its tier must still allow the
     /// step — checked before its screen is read or sent to any checker.
-    private func ensureRunsInApprovedApp(_ app: ResolvedApp, step: ScreenedStep) throws {
+    private func ensureRunsInApprovedApp(
+        _ app: ResolvedApp, step: ScreenedStep, policy: SafetyPolicy
+    ) throws {
         guard app.identity.bundleIdentifier == step.app?.bundleIdentifier else {
             throw RunnerStop.blocked(
                 .notInPlan(
                     planned: step.action.summary, proposed: "act in \(app.identity.displayName)"),
                 stepNumber: step.number)
         }
-        let tier = dependencies.safetyPolicy.appTrust.tier(for: app.identity)
+        let tier = policy.appTrust.tier(for: app.identity)
         guard AppTrustPolicy.permission(for: step.action.kind, in: tier) != .denied else {
             throw RunnerStop.blocked(
                 .blockedByTier(
@@ -204,8 +209,7 @@ extension TaskRunner {
             if let violation = limiter.violation(at: .now),
                 violation
                     != .actionsTooClose(
-                        minimumSeconds: dependencies.safetyPolicy.limits
-                            .minimumSecondsBetweenActions)
+                        minimumSeconds: currentPolicy.limits.minimumSecondsBetweenActions)
             {
                 throw RunnerStop.blocked(.limitReached(violation), stepNumber: step.number)
             }

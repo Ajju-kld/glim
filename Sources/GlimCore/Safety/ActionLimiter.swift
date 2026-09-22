@@ -2,7 +2,7 @@
 ///
 /// Time is passed in rather than read from a clock, so tests control it exactly.
 public struct ActionLimiter: Sendable {
-    private let limits: SafetyLimits
+    private var limits: SafetyLimits
     private let taskStartedAt: ContinuousClock.Instant
     private var lastActionAt: ContinuousClock.Instant?
 
@@ -58,6 +58,11 @@ public struct ActionLimiter: Sendable {
     /// Records a model error (bad JSON, unknown element number) for the current step.
     public mutating func recordModelError() {
         triesForCurrentStep += 1
+    }
+
+    /// Adopts limits tightened during the task.
+    public mutating func updateLimits(_ newLimits: SafetyLimits) {
+        limits = newLimits
     }
 
     /// Resets the per-step try count when the runner moves to the next plan step.

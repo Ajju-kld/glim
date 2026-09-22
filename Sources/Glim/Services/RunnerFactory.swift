@@ -5,6 +5,7 @@ import GlimCore
 enum RunnerFactory {
     static func makeRunner(
         settings: GlimSettings,
+        settingsBox: SettingsBox,
         isActionModeAllowed: Bool,
         services: LiveServices,
         decisions: any PersonDecisions,
@@ -22,8 +23,6 @@ enum RunnerFactory {
                     transport: transport, apiKey: { try secretStore.jevAPIKey() },
                     excludedBundleIdentifiers: settings.jev.excludedBundleIdentifiers))
         }
-        let policy =
-            isActionModeAllowed ? settings.safetyPolicy : readOnlyEverywhere(settings.safetyPolicy)
         let dependencies = TaskRunnerDependencies(
             planner: Planner(
                 languageModel: OllamaClient(
@@ -40,14 +39,17 @@ enum RunnerFactory {
             auditLog: services.auditLog,
             takeoverMonitor: TakeoverMonitor(
                 killSwitch: services.killSwitch, inputClock: HardwareInputClock()),
-            safetyPolicy: policy,
+            safetyPolicyProvider: {
+                let policy = settingsBox.settings.safetyPolicy
+                return isActionModeAllowed ? policy : readOnlyEverywhere(policy)
+            },
             isWatchdogAlive: { watchdogHealth.isAlive })
         return TaskRunner(dependencies: dependencies)
     }
 
     /// With action mode off (non-English interface), every app is capped at read-only: questions
     /// and window arrangement still work, clicking and typing don't.
-    private static func readOnlyEverywhere(_ policy: SafetyPolicy) -> SafetyPolicy {
+    nonisolated private static func readOnlyEverywhere(_ policy: SafetyPolicy) -> SafetyPolicy {
         var cappedPolicy = policy
         cappedPolicy.appTrust.tiersByBundleIdentifier = policy.appTrust.tiersByBundleIdentifier
             .mapValues { min($0, .readOnly) }

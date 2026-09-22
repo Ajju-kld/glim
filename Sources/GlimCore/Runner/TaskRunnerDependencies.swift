@@ -11,7 +11,8 @@ public struct TaskRunnerDependencies: Sendable {
     let killSwitch: KillSwitch
     let auditLog: AuditLog
     let takeoverMonitor: TakeoverMonitor?
-    let safetyPolicy: SafetyPolicy
+    /// Reads the current settings' policy; the runner re-reads it on every step.
+    let safetyPolicyProvider: @Sendable () -> SafetyPolicy
     let isWatchdogAlive: @Sendable () -> Bool
 
     /// Collects the runner's dependencies.
@@ -27,7 +28,7 @@ public struct TaskRunnerDependencies: Sendable {
         killSwitch: KillSwitch,
         auditLog: AuditLog,
         takeoverMonitor: TakeoverMonitor?,
-        safetyPolicy: SafetyPolicy,
+        safetyPolicyProvider: @escaping @Sendable () -> SafetyPolicy,
         isWatchdogAlive: @escaping @Sendable () -> Bool
     ) {
         self.planner = planner
@@ -41,7 +42,7 @@ public struct TaskRunnerDependencies: Sendable {
         self.killSwitch = killSwitch
         self.auditLog = auditLog
         self.takeoverMonitor = takeoverMonitor
-        self.safetyPolicy = safetyPolicy
+        self.safetyPolicyProvider = safetyPolicyProvider
         self.isWatchdogAlive = isWatchdogAlive
     }
 }

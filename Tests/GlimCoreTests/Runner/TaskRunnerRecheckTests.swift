@@ -95,3 +95,67 @@ struct TaskRunnerRecheckTests {
         }
     }
 }
+
+struct TaskRunnerLivePolicyTests {
+    typealias Base = TaskRunnerTests
+
+    @Test func tighteningDuringATaskAppliesToTheNextStep() async throws {
+        try await withTemporaryDirectory { directory in
+            let policy = ChangingPolicy(Base.testPolicy)
+            let executor = RecordingExecutor {
+                policy.update {
+                    $0.appTrust.tiersByBundleIdentifier["dev.straxs.Glim.Testbed"] = .neverTouch
+                }
+            }
+            let harness = TaskRunnerTests.Harness(
+                model: FakeLanguageModel(answers: [
+                    .success(
+                        #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"New Item"},{"action":"click","app":"Testbed","target":"New Item"}]}"#
+                    ),
+                    .success(#"{"elementNumber":1,"blocked":false}"#),
+                    .success(#"{"elementNumber":1,"blocked":false}"#),
+                ]),
+                screenReader: ScriptedScreenReader(table: Base.testbedTable), executor: executor,
+                decisions: ScriptedDecisions(), auditLog: AuditLog(directory: directory))
+
+            let outcome = await harness.run(
+                "click twice", runner: harness.makeRunner(policy: policy))
+
+            #expect(
+                outcome
+                    == .blocked(
+                        .blockedByTier(appName: "Testbed", tier: .neverTouch, action: .click),
+                        stepNumber: 2))
+            #expect(executor.performed.count == 1)
+        }
+    }
+
+    @Test func looseningDuringATaskDoesNotReachIt() async throws {
+        try await withTemporaryDirectory { directory in
+            var strictPolicy = Base.testPolicy
+            strictPolicy.riskWords.forbidden.append("archive")
+            let policy = ChangingPolicy(strictPolicy)
+            let harness = TaskRunnerTests.Harness(
+                model: FakeLanguageModel(answers: [
+                    .success(
+                        #"{"kind":"task","steps":[{"action":"pressKey","app":"Testbed","key":"tab"},{"action":"click","app":"Testbed","target":"Item"}]}"#
+                    ),
+                    .success(#"{"elementNumber":5,"blocked":false}"#),
+                ]),
+                screenReader: ScriptedScreenReader(table: Base.testbedTable),
+                executor: RecordingExecutor {
+                    policy.update { $0.riskWords.forbidden.removeAll { $0 == "archive" } }
+                },
+                decisions: ScriptedDecisions(), auditLog: AuditLog(directory: directory))
+
+            let outcome = await harness.run(
+                "tab then click", runner: harness.makeRunner(policy: policy))
+
+            #expect(
+                outcome
+                    == .blocked(
+                        .forbiddenAction(matchedPhrase: "archive", elementLabel: "Archive"),
+                        stepNumber: 2))
+        }
+    }
+}

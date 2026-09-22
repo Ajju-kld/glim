@@ -8,13 +8,20 @@ import Foundation
 public struct TaskRunner: Sendable {
     let dependencies: TaskRunnerDependencies
     let timing: RunnerTiming
-    let gate: SafetyGate
+    /// The policy when this runner was created; a runner serves one request.
+    private let startingPolicy: SafetyPolicy
 
-    /// Creates a runner.
+    /// Creates a runner for one request.
     public init(dependencies: TaskRunnerDependencies, timing: RunnerTiming = .standard) {
         self.dependencies = dependencies
         self.timing = timing
-        self.gate = SafetyGate(policy: dependencies.safetyPolicy)
+        self.startingPolicy = dependencies.safetyPolicyProvider()
+    }
+
+    /// The policy in force right now: the starting policy combined strictly with the current
+    /// settings, so a tightening applies at once and a loosening never reaches a running task.
+    var currentPolicy: SafetyPolicy {
+        startingPolicy.combinedStrictly(with: dependencies.safetyPolicyProvider())
     }
 
     /// Runs one request and reports progress through `onEvent`.
@@ -107,7 +114,7 @@ public struct TaskRunner: Sendable {
     private func runTask(
         _ plan: Plan, onEvent: @escaping @Sendable (TaskEvent) -> Void
     ) async throws -> TaskOutcome {
-        let screener = PlanScreener(policy: dependencies.safetyPolicy)
+        let screener = PlanScreener(policy: currentPolicy)
         let screening = screener.screen(plan) { appName in
             dependencies.appResolver.resolve(appNamed: appName)?.identity
         }
@@ -131,7 +138,7 @@ public struct TaskRunner: Sendable {
         let takeoverSupervisor = TakeoverSupervisor(monitor: dependencies.takeoverMonitor)
         takeoverSupervisor.start()
         defer { takeoverSupervisor.stop() }
-        var limiter = ActionLimiter(limits: dependencies.safetyPolicy.limits, taskStartedAt: .now)
+        var limiter = ActionLimiter(limits: currentPolicy.limits, taskStartedAt: .now)
         for step in screenedPlan.steps {
             try await runStep(
                 step, of: screenedPlan, limiter: &limiter, takeoverSupervisor: takeoverSupervisor,
@@ -167,7 +174,7 @@ public struct TaskRunner: Sendable {
     }
 
     func canRead(_ app: ResolvedApp) -> Bool {
-        dependencies.safetyPolicy.appTrust.tier(for: app.identity) != .neverTouch
+        currentPolicy.appTrust.tier(for: app.identity) != .neverTouch
     }
 
     func ensureArmed() throws {

@@ -17,7 +17,10 @@ final class AppModel {
         didSet { pillController?.show(pillStatus) }
     }
     private(set) var tripReason: TripReason?
-    private(set) var settings = GlimSettings.safeDefaults
+    private(set) var settings = GlimSettings.safeDefaults {
+        didSet { settingsBox.update(settings) }
+    }
+    let settingsBox = SettingsBox()
     private(set) var watchdogState = WatchdogSupervisor.State.starting
     private(set) var isTaskRunning = false
     private(set) var isListening = false
@@ -186,7 +189,9 @@ final class AppModel {
     private func startTask(transcript: String) {
         guard let decisionPresenter else { return }
         let runner = RunnerFactory.makeRunner(
-            settings: settings, isActionModeAllowed: isActionModeAvailable, services: services,
+            settings: settings, settingsBox: settingsBox,
+            isActionModeAllowed: isActionModeAvailable,
+            services: services,
             decisions: decisionPresenter, narrator: narrator,
             watchdogHealth: watchdogSupervisor.health)
         let (events, eventContinuation) = AsyncStream<TaskEvent>.makeStream()
