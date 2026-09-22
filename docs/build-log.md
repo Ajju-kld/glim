@@ -543,3 +543,40 @@ detection, with a results table).
 **Checks:** `xmllint --noout` passes; a rendered still frame was reviewed. That review led to
 removing the Apple-logo glyph (it doesn't render outside Apple fonts) and left-anchoring the
 menu-bar text.
+
+## 2026-09-23 — Independent code review and fixes
+
+**Review:** a fresh reviewer read every source file, ran the gates, and reported **no Critical
+issues**, seven Important and about twenty Minor. Verdict: "With fixes". Every Important finding
+was checked against the code and confirmed, then fixed test-first:
+
+| # | Finding | Fix (commit) |
+|---|---|---|
+| 1 | Settings tightened mid-task didn't reach the running task | Runner re-reads settings each step, combined strictly with its starting policy (`e6015c8`) |
+| 2 | No re-check after the up-to-60 s confirmation; shallow element check | Fresh snapshot + same control + gate re-run after "Allow once"; live identity check recomputes the label (`63c839c`, `6c6a4f5`) |
+| 3 | Kill switch not checked at the OS call; per-app AX timeout didn't cover children | Checked right before every AX write and `postToPid`; timeout set on the system-wide element (`6333105`) |
+| 4 | Panels took keyboard focus → Approve reachable by keyboard | Never key; real mouse click only; 0.8 s arming delay (`eb25690`) |
+| 5 | Return never checked against Forbidden words | Reads focused control + default button; Forbidden denies; confirmation names it (`63c839c`) |
+| 6 | Mic could stay on after releasing the talk key during startup | `ListeningSessionGate` cancels a start in progress (`e1b0c71`) |
+| 7 | Cloud models (Ollama `-cloud`) would leak through 127.0.0.1 | Model change needs Touch ID; cloud names refused by settings and client (`eae1d9a`) |
+
+**Minors fixed:** accent/width folding and every default phrase tested; invisible formatting
+characters refused; checkers never see the typed text; the run-time app is checked before its
+screen is read; opening requires a verified signature; app actions verified (opening, switching,
+quitting); screen read failures audited; damaged audit lines skipped; a stop never shows a
+misleading "Ollama isn't running"; one shared, proxy-free network session; watchdog "ready"
+trusted only from our helper; serialized settings edits; settings reset shown as a popup; scroll
+at the window centre; docs aligned (spec §18, SAFETY.md, README, manual tests T11).
+
+**A real bug found by a new test:** the takeover monitor measured from when its task first ran,
+so input in a scheduling gap right after approval could be missed. The start instant is now
+captured when watching is requested, and the API requires it.
+
+**Flakiness removed:** two timing-based tests became deterministic (they wait for the trip,
+bounded at 2 s). The full suite ran 15 times in a row with no failures.
+
+**Deferred (spec §18 "Known gaps"):** checker-offline badge, Jev 401 key flag, settings rollback
+protection, Laya dependency pinning, homoglyph folding.
+
+**Gates:** `All gates passed.` — 314 tests in 53 suites; strict lint clean; debug and release
+builds warning-free.

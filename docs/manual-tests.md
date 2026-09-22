@@ -21,7 +21,7 @@ Put Testbed in front. For each line, hold ⌃⌥V, say the request, release.
 |---|---|
 | "Click New Item in Testbed" | Plan panel → Approve → "Last clicked: New Item" |
 | "Click Send in Testbed" | Plan → Approve → **confirmation panel** ("“Send” contains “send”") → Allow once → "Last clicked: Send" |
-| "Click Archive in Testbed" | Plan → Approve → runs (Archive is not a risky word) |
+| "Click Archive in Testbed" | Plan → Approve → runs (Archive is not a risky word; if Laya is running and confidently disagrees, a confirmation appears instead) |
 | "Click Delete in Testbed" | **Red popup before any plan panel**: Forbidden action — "Delete" |
 | "Click Buy in Testbed" | Red popup: Forbidden — "buy" |
 | "Click Don't Save in Testbed" | Red popup: Forbidden — "don't save" |
@@ -58,9 +58,10 @@ In Notes, say: "Delete this note". → Red popup; the note is untouched.
 
 1. Start a multi-step task (T5) and press **⌃⌥⌘K** during step 1 → Glim stops before the next
    step; red popup "You pressed ⌃⌥⌘K"; Dashboard shows STOPPED; click **Re-arm**.
-2. Debug build only: menu → **Simulate freeze (then press ⌃⌥⌘K)** → press ⌃⌥⌘K → Glim is
-   force-quit within half a second (it disappears from the menu bar). Relaunch with
-   `open build/Glim.app`.
+2. Debug build only — build it with `GLIM_CONFIGURATION=debug scripts/run.sh`. Menu →
+   **Simulate freeze (then press ⌃⌥⌘K)** → press ⌃⌥⌘K → Glim is force-quit within half a second
+   (it disappears from the menu bar). Relaunch with `open build/Glim.app`. If you don't press
+   ⌃⌥⌘K, end the suspended process with `pkill -x Glim`.
 
 ## T8 — Human takeover (criterion 7)
 
@@ -78,6 +79,14 @@ Start T5 and move the mouse while Glim is acting (after the first second). → S
 Quit Glim, edit `~/Library/Application Support/Glim/settings.json` (change any value), relaunch.
 → "Settings were changed outside Glim, so safe defaults were restored."
 
+## T11 — Click-only approvals and re-checks
+
+1. When a plan panel appears, press Tab and Space (or Return): **nothing happens** — only a mouse
+   click approves. Clicking Approve within the first second does nothing either.
+2. Say "Click Send in Testbed"; when the confirmation appears, wait, then Allow. Works.
+3. In Testbed, press Tab so a button is focused, then say "press return in Testbed". → The
+   confirmation names the focused button ("Pressing Return would activate …").
+
 ## Results
 
 | Test | Date | Result | Notes |
@@ -92,3 +101,4 @@ Quit Glim, edit `~/Library/Application Support/Glim/settings.json` (change any v
 | T8 | | | |
 | T9 | | | |
 | T10 | | | |
+| T11 | | | |

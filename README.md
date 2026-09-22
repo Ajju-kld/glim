@@ -54,9 +54,10 @@ flowchart LR
     J --> F
 ```
 
-The planner only ever sees **labels** — app names, window titles and button names — never the
-text inside your documents, emails or web pages, so words on screen can't sneak steps into a
-plan.
+The planner only ever sees **labels** — app names, window titles and the names of buttons,
+fields and list rows — never the contents of your documents, emails or fields, so text inside
+them can't sneak steps into a plan. (A list row's label is the words it shows, so a message
+preview title can appear.)
 
 ## Safety
 
@@ -91,8 +92,9 @@ within half a second. Last resort: Force Quit (⌥⌘⎋) or `pkill -x Glim`.
 **Nothing** — unless you switch on the optional Jev checker. Speech is recognized on the Mac,
 the planner runs in local Ollama, the Laya checker runs locally, screenshots stay in memory.
 Glim's network allowlist is enforced in code: `127.0.0.1` only, plus TypeSafe's Jev address if
-you turn Jev on (then only your goal, app name, window title and button labels are sent — never
-screenshots, never messaging apps).
+you turn Jev on (then your goal, app name, window title and the candidate controls' labels are
+sent — never screenshots, never the text you're typing, never messaging apps). Cloud AI models
+are refused, even through the local Ollama address.
 
 ## Quick start
 
@@ -138,7 +140,7 @@ The **control panel** (menu bar → Open Control Panel) has a live Dashboard, **
 ## Development
 
 ```sh
-scripts/check.sh     # build → 265 tests → strict swift-format lint (the gate)
+scripts/check.sh     # build → 314 tests → strict swift-format lint (the gate)
 scripts/format.sh    # apply house style
 ```
 

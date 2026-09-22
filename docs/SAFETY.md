@@ -20,8 +20,11 @@ When you say "open Notes and write buy milk", Glim shows the plan before doing a
         [Cancel]   [Approve]
 ```
 
-Nothing happens until you click **Approve** (never by voice, so a video playing in the
-background can't approve anything). If you don't answer within 60 seconds, the plan is cancelled.
+Nothing happens until you **click** Approve. Not by voice (so a video playing in the background
+can't approve anything), and not by keyboard: Glim's panels never take keyboard focus, so nothing
+you type — not even keyboard navigation — can reach their buttons. The buttons also ignore clicks
+for the first 0.8 seconds, so a click you were already making can't land on Approve. If you don't
+answer within 60 seconds, the plan is cancelled.
 
 The text to type is fixed at this moment. Later, while the task runs, the AI only chooses
 *where* to type — never *what*.
@@ -49,8 +52,13 @@ Before every click, Glim reads the button's label, description and tooltip.
 - ⚠️ **Confirm — asks you:** send, submit, post, share, reply, forward, accept, agree, close,
   quitting an app, pressing Return.
 
-Matching understands real-world spellings: "Don’t Save", "Move to Trash…" and "SIGN-OUT" are all
-caught, while harmless look-alikes such as "Deleted Items" or "Sender" are not.
+Matching understands real-world spellings: "Don’t Save", "Move to Trash…", "SIGN-OUT", "Délete"
+and full-width "ｄｅｌｅｔｅ" are all caught, while harmless look-alikes such as "Deleted Items" or
+"Sender" are not.
+
+**Return is checked too.** Before pressing Return, Glim reads what it would activate — the
+focused control and the window's default button — and applies the same rules: a Forbidden word
+blocks it, and the confirmation names the control ("Pressing Return would activate “Send”").
 
 Buttons with no label at all (like an icon-only trash can) are never offered to the AI. Glim
 has no Delete key and no keyboard shortcuts it can press.
@@ -71,6 +79,17 @@ the first problem:
    3 minutes per task, and 3 actions in a row that change nothing on screen.
 8. No forbidden word.
 
+Typed text may also not contain invisible formatting characters (like bidi overrides or zero-width
+spaces), which could make the approval panel show something different from what gets typed.
+
+**Right before acting**, Glim re-reads the control and checks it is still exactly the one it
+read — same role, same label, same description — and checks the kill switch one last time,
+immediately before the actual click or keystroke.
+
+**After you confirm**, Glim looks at the screen again (you may have taken up to a minute), finds
+the same control, and runs every check again. If anything changed that you didn't see, it stops
+instead of acting on something new.
+
 Then it collects reasons to ask you: a risky word, pressing Return, a button that doesn't match
 the plan ("Plan said *New Note*, AI chose *Archive*"), a second-opinion checker that disagrees
 or is offline, a supervised app, or quitting an app. All reasons are shown together in one panel.
@@ -83,9 +102,10 @@ task**. A blocked action never gets a second try.
 A second model double-checks every click the main model picks:
 
 - **Laya** runs locally on your Mac.
-- **Jev** runs in TypeSafe's cloud — **off by default**. If you turn it on, only your goal, the app
-  name, window title and button labels are sent (never screenshots), and never for messaging
-  apps.
+- **Jev** runs in TypeSafe's cloud — **off by default**. If you turn it on, your goal, the app
+  name, window title and the labels of the candidate controls are sent — never screenshots,
+  never field contents, never the text you're about to type, and never anything from messaging
+  apps. A label can be the words a control shows (a list row is labelled by its text).
 
 If a checker is confident the main model picked the wrong button, Glim asks you. If a checker is
 offline, every click and typing step asks you.
@@ -97,8 +117,10 @@ Stop Glim instantly, any of these ways:
 - Press **⌃⌥⌘K** anywhere.
 - Click the ■ in the notch pill, or **STOP** in the menu.
 - Say "stop" or "cancel" while holding the talk key.
-- Click **Cancel** or **Stop** in any Glim panel.
+- Click **Stop** in a confirmation panel (Cancel on a plan just cancels that plan).
 - **Just touch your keyboard or mouse** while Glim is acting — it hands control back to you.
+  (Input in the first second after you click Approve or Allow is ignored, so a hand still moving
+  after the click doesn't count.)
 
 ⌃⌥⌘K is owned by a separate tiny watchdog program. If Glim itself freezes, the watchdog
 force-quits it within half a second. Without a running watchdog, Glim refuses to act at all.
@@ -121,8 +143,10 @@ There is no code in Glim that can:
 ## 8. Changing the rules
 
 Every list and limit is editable in the control panel. Making anything **less** safe — removing
-a forbidden word, moving an app to a more trusting tier, raising a limit, turning on Jev —
-needs your **Touch ID or Mac password**. Making things safer never asks.
+a forbidden word, moving an app to a more trusting tier, raising a limit, turning on Jev,
+changing the AI model — needs your **Touch ID or Mac password**. Making things safer never asks,
+and it applies **immediately, even to a task that's already running**. Cloud AI models are
+refused outright, because they would send your screen off the Mac while looking local.
 
 The settings file is sealed with a secret key kept in your Keychain. If anyone edits the file
 directly, Glim notices and falls back to the safe defaults.
