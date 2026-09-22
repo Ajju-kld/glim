@@ -14,7 +14,8 @@ final class TakeoverSupervisor: Sendable {
         guard let monitor else {
             return
         }
-        let newTask = Task { await monitor.watchUntilCancelled() }
+        let startInstant = ContinuousClock.now
+        let newTask = Task { await monitor.watchUntilCancelled(from: startInstant) }
         let previousTask = watchTask.withLock { current in
             let previous = current
             current = newTask

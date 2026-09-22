@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Append-only record of everything Glim decides and does, as JSON Lines on this Mac.
 ///
@@ -6,6 +7,7 @@ import Foundation
 /// time order. After every append, files older than the retention age are deleted, then the
 /// oldest files are deleted until the total fits the size cap.
 public actor AuditLog {
+    private static let logger = Logger(subsystem: "dev.straxs.Glim", category: "AuditLog")
     private static let fileNamePrefix = "audit-"
     private static let fileExtension = "jsonl"
     private static let dayStampLength = 10
@@ -164,7 +166,11 @@ public actor AuditLog {
             do {
                 events.append(try decoder.decode(AuditEvent.self, from: Data(line.utf8)))
             } catch {
-                throw .corruptedLine(path: path, lineNumber: lineIndex + 1)
+                // A force-quit (the watchdog's designed path) can cut the last line short; one
+                // damaged line must not hide the rest of the history.
+                Self.logger.warning(
+                    "Skipped damaged audit line \(lineIndex + 1, privacy: .public) in \(path, privacy: .public)"
+                )
             }
         }
         return events

@@ -65,11 +65,11 @@ final class RecordingScreenshotter: ScreenshotCapturing {
 final class RecordingExecutor: ActionPerforming {
     private let performedActions = Mutex<[ExecutableAction]>([])
     private let killSwitchToTripOnFirstAction: KillSwitch?
-    private let afterEachAction: (@Sendable () -> Void)?
+    private let afterEachAction: (@Sendable () async -> Void)?
 
     init(
         killSwitchToTripOnFirstAction: KillSwitch? = nil,
-        afterEachAction: (@Sendable () -> Void)? = nil
+        afterEachAction: (@Sendable () async -> Void)? = nil
     ) {
         self.killSwitchToTripOnFirstAction = killSwitchToTripOnFirstAction
         self.afterEachAction = afterEachAction
@@ -82,7 +82,7 @@ final class RecordingExecutor: ActionPerforming {
     func perform(_ action: ExecutableAction) async throws(ExecutionError) {
         performedActions.withLock { $0.append(action) }
         killSwitchToTripOnFirstAction?.trip(.killHotkey)
-        afterEachAction?()
+        await afterEachAction?()
     }
 }
 

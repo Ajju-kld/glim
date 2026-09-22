@@ -43,7 +43,9 @@ struct TaskRunnerTests {
             frontmostBundleIdentifier: String = "dev.straxs.Glim.Testbed",
             checkers: [any TargetChecker] = [],
             isWatchdogAlive: Bool = true,
-            policy: ChangingPolicy = ChangingPolicy(testPolicy)
+            policy: ChangingPolicy = ChangingPolicy(testPolicy),
+            takeoverMonitor: TakeoverMonitor? = nil,
+            timing: RunnerTiming = quickTiming
         ) -> TaskRunner {
             let runningApps = [
                 RunningApp(
@@ -82,10 +84,10 @@ struct TaskRunnerTests {
                 narrator: narrator,
                 killSwitch: killSwitch,
                 auditLog: auditLog,
-                takeoverMonitor: nil,
+                takeoverMonitor: takeoverMonitor,
                 safetyPolicyProvider: { policy.current },
                 isWatchdogAlive: { isWatchdogAlive })
-            return TaskRunner(dependencies: dependencies, timing: quickTiming)
+            return TaskRunner(dependencies: dependencies, timing: timing)
         }
 
         func run(_ transcript: String, runner: TaskRunner? = nil) async -> TaskOutcome {

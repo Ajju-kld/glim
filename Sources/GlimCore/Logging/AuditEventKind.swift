@@ -12,6 +12,7 @@ public enum AuditEventKind: String, Sendable, Codable {
     case actionPerformed
     case actionFailed
     case answerGiven
+    case screenReadFailed
     case taskFinished
     case killSwitchTripped
     case killSwitchRearmed

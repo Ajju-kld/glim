@@ -28,7 +28,12 @@ public struct TaskRunner: Sendable {
     public func run(
         transcript: String, onEvent: @escaping @Sendable (TaskEvent) -> Void
     ) async -> TaskOutcome {
-        let outcome = await outcome(for: transcript, onEvent: onEvent)
+        var outcome = await outcome(for: transcript, onEvent: onEvent)
+        // Stopping cancels in-flight requests; their errors ("Ollama isn't running") are
+        // side effects of the stop, not the real reason.
+        if case .failed = outcome, let tripReason = dependencies.killSwitch.tripReason {
+            outcome = .stopped(tripReason)
+        }
         do {
             try await audit(.taskFinished, "Task ended: \(outcome)")
         } catch {
@@ -94,7 +99,9 @@ public struct TaskRunner: Sendable {
                 guard snapshot != nil else {
                     throw RunnerStop.failed(error.explanation)
                 }
-                // Fall back to the text Glim already has.
+                try await audit(
+                    .screenReadFailed,
+                    "Screenshot failed; answering from text: \(error.explanation)")
             }
         }
         let answer: String
@@ -169,6 +176,8 @@ public struct TaskRunner: Sendable {
         } catch .accessibilityNotTrusted {
             throw RunnerStop.failed(ScreenReadingError.accessibilityNotTrusted.explanation)
         } catch {
+            try await audit(
+                .screenReadFailed, "Planning without the front window: \(error.explanation)")
             return nil
         }
     }

@@ -289,16 +289,28 @@ extension TaskRunner {
         }
     }
 
-    /// Whether the step visibly changed something. App and window actions report success
-    /// themselves; in-app actions compare the window before and after. Glim never repeats an
-    /// action automatically (a repeated click could send twice); unchanged steps count toward
-    /// the no-change limit instead.
+    /// Whether the step visibly changed something. Opening or switching must bring the app to
+    /// the front (macOS may decline an activation request); quitting must end it; window
+    /// arrangements report their own success; in-app actions compare the window before and after.
+    /// Glim never repeats an action automatically (a repeated click could send twice); unchanged
+    /// steps count toward the no-change limit instead.
     private func screenChanged(
         after step: ScreenedStep, in app: ResolvedApp, before: ScreenSnapshot?
     ) async throws -> Bool {
+        let appName = app.identity.displayName
+        switch step.action.kind {
+        case .openApp, .switchApp:
+            return dependencies.appResolver.frontmostApp()?.identity.bundleIdentifier
+                == app.identity.bundleIdentifier
+        case .quitApp:
+            return dependencies.appResolver.resolveRunning(appNamed: appName) == nil
+        case .moveWindow, .minimizeWindow, .restoreWindow, .speak:
+            return true
+        case .click, .typeText, .pressKey, .scroll:
+            break
+        }
         guard let before,
-            let runningApp = dependencies.appResolver.resolveRunning(
-                appNamed: app.identity.displayName)
+            let runningApp = dependencies.appResolver.resolveRunning(appNamed: appName)
         else {
             return true
         }
@@ -306,6 +318,9 @@ extension TaskRunner {
         do {
             after = try await dependencies.screenReader.snapshotFrontWindow(of: runningApp)
         } catch {
+            try await audit(
+                .screenReadFailed, "Could not re-read \(appName) after acting: \(error.explanation)"
+            )
             return false
         }
         if let typedText = step.action.approvedText,

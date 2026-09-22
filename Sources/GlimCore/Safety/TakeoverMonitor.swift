@@ -39,25 +39,28 @@ public struct TakeoverMonitor: Sendable {
 
     /// Watches until the task is cancelled or a person takes over. The runner starts this when
     /// acting begins and cancels it whenever a panel waits for the person.
-    public func watchUntilCancelled() async {
+    ///
+    /// - Parameter startInstant: When watching was requested. Measuring from here — not from
+    ///   when this task first gets to run — means input in a scheduling gap is never missed.
+    public func watchUntilCancelled(from startInstant: ContinuousClock.Instant = .now) async {
+        let watchingStartedAt = startInstant + timing.settleDelay
         do {
-            try await Task.sleep(for: timing.settleDelay)
+            try await Task.sleep(until: watchingStartedAt, clock: .continuous)
         } catch {
             return
         }
-        let watchingStartedAt = ContinuousClock.now
         while !Task.isCancelled, killSwitch.isArmed {
-            do {
-                try await Task.sleep(for: timing.pollInterval)
-            } catch {
-                return
-            }
             let secondsWatching = Self.seconds(in: ContinuousClock.now - watchingStartedAt)
             let secondsSinceInput = inputClock.secondsSinceLastHumanInput() + timing.graceSeconds
             if Self.humanTookOver(
                 secondsSinceLastInput: secondsSinceInput, secondsWatching: secondsWatching)
             {
                 killSwitch.trip(.humanTookOver)
+                return
+            }
+            do {
+                try await Task.sleep(for: timing.pollInterval)
+            } catch {
                 return
             }
         }

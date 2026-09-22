@@ -139,3 +139,23 @@ struct AuditLogTests {
         }
     }
 }
+
+struct AuditLogDamageTests {
+    @Test func aDamagedLineIsSkippedNotFatal() async throws {
+        try await withTemporaryDirectory { directory in
+            let now = try Date("2026-09-23T10:00:00Z", strategy: .iso8601)
+            let auditLog = AuditLog(directory: directory, now: { now })
+            try await auditLog.append(.settingsChanged, summary: "before")
+            let fileURL = directory.appending(path: "audit-2026-09-23-001.jsonl")
+            let fileHandle = try FileHandle(forWritingTo: fileURL)
+            try fileHandle.seekToEnd()
+            try fileHandle.write(contentsOf: Data("{\"cut off by a force quit\n".utf8))
+            try fileHandle.close()
+            try await auditLog.append(.settingsChanged, summary: "after")
+
+            let summaries = try await auditLog.readAllEvents().map(\.summary)
+
+            #expect(summaries == ["before", "after"])
+        }
+    }
+}

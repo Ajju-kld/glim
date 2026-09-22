@@ -5,5 +5,4 @@ public enum AuditLogError: Error, Sendable, Equatable {
     case cannotRead(path: String, reason: String)
     case cannotDelete(path: String, reason: String)
     case cannotEncode(reason: String)
-    case corruptedLine(path: String, lineNumber: Int)
 }
