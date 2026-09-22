@@ -393,3 +393,27 @@ signals can only *stop* Glim, never make it act.
 of Darwin notifications (unique name prefix per test) and the stop → acknowledge handshake.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 25: Voice input and output
+
+**What:** `SpokenCommandMatcher`, `AudioLevel`, `VoiceEvent`, `VoiceInputError`,
+`PushToTalkTranscribing` + live `SpeechAnalyzerTranscriber` (macOS 26 `SpeechAnalyzer` /
+`SpeechTranscriber`, progressive transcription, `en-US`, on-device), `AudioTapProcessor`
+(microphone → analyzer format + waveform level), `Narrating` + `SpeechNarrator`
+(`AVSpeechSynthesizer`, mutable).
+
+**Why:** Push-to-talk (A-Q4): the microphone runs only between `startListening` and
+`stopListening`; cancel discards everything. While a task runs, any "stop"/"cancel" stops it;
+when idle only a bare stop command counts, so "stop the music" is still a request. The first
+use downloads Apple's on-device English model — macOS does this, not Glim.
+
+**API check:** the `SpeechAnalyzer` signatures were read from the macOS 26 SDK's
+`.swiftinterface`, not guessed.
+
+**Fix during the task:** the converter's input block is `@Sendable`, so a captured `var`
+warned under strict concurrency → replaced with a one-shot supplier (build is warning-free).
+
+**TDD:** failed with "cannot find 'SpokenCommandMatcher' in scope"; then 234 tests passed. The
+live microphone path needs Microphone and Speech Recognition permission → manual test script.
+
+**Gates:** `All gates passed.`
