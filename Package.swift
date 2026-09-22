@@ -9,6 +9,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "GlimCore"),
+        .executableTarget(name: "GlimWatchdog", dependencies: ["GlimCore"]),
         .testTarget(name: "GlimCoreTests", dependencies: ["GlimCore"]),
     ],
     swiftLanguageModes: [.v6]

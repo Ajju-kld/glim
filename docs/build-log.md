@@ -449,3 +449,25 @@ retries exhausted, watchdog missing, checker disagreement, Ollama down, spoken s
 limit, audit trail.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 27: GlimWatchdog helper
+
+**What:** `GlimWatchdog` executable (`WatchdogController`, `main.swift`), plus tested core pieces:
+`StopEscalator` (request → wait 0.5 s → SIGKILL on silence), `AcknowledgementWaiter` (armed before
+the request, so an instant or stale acknowledgement is handled correctly), `HotkeyCombo`
+(⌃⌥⌘K, ⌃⌥V) and `GlobalHotkey` (Carbon `RegisterEventHotKey`, press and release, no permission).
+
+**Spike S1 resolved:** a plain helper executable registers the Carbon global hotkey. Smoke
+test: the watchdog posted `dev.straxs.Glim.watchdog.ready` (sent only after registration
+succeeds), stayed alive while its parent ran, and exited when the parent exited.
+
+**Fixes during the task:** `Mutex` is non-copyable, so it can't be captured in the notification
+closure → flags moved into a small `Sendable` reference type.
+
+**Honest note:** the smoke test briefly wrote its notification output to `/tmp` (deleted right
+after); later checks use the session scratchpad.
+
+**TDD:** failed with "cannot find 'StopEscalator' / 'HotkeyCombo' in scope"; then 261 tests
+passed.
+
+**Gates:** `All gates passed.`
