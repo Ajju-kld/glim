@@ -5,10 +5,12 @@ import Foundation
 /// control that changed since it was read is never pressed or typed into.
 extension AccessibilityService {
     func press(
-        elementNumber: Int, expected: UIElementSnapshot, processIdentifier: pid_t
+        elementNumber: Int, expected: UIElementSnapshot, processIdentifier: pid_t,
+        killSwitch: KillSwitch
     ) throws(ExecutionError) {
         let element = try verifiedElement(
             number: elementNumber, expected: expected, processIdentifier: processIdentifier)
+        try Self.ensureArmed(killSwitch)
         let status = AXUIElementPerformAction(element, kAXPressAction as CFString)
         guard status == .success else {
             throw .actionFailed(
@@ -17,10 +19,12 @@ extension AccessibilityService {
     }
 
     func focusTextField(
-        elementNumber: Int, expected: UIElementSnapshot, processIdentifier: pid_t
+        elementNumber: Int, expected: UIElementSnapshot, processIdentifier: pid_t,
+        killSwitch: KillSwitch
     ) throws(ExecutionError) {
         let element = try verifiedElement(
             number: elementNumber, expected: expected, processIdentifier: processIdentifier)
+        try Self.ensureArmed(killSwitch)
         let status = AXUIElementSetAttributeValue(
             element, kAXFocusedAttribute as CFString, kCFBooleanTrue)
         guard status == .success, isFocused(element, processIdentifier: processIdentifier) else {
@@ -49,7 +53,7 @@ extension AccessibilityService {
     }
 
     func setFocusedWindowFrame(
-        _ frame: CGRect, processIdentifier: pid_t, appName: String
+        _ frame: CGRect, processIdentifier: pid_t, appName: String, killSwitch: KillSwitch
     ) throws(ExecutionError) {
         let window = try window(of: processIdentifier, appName: appName)
         var origin = frame.origin
@@ -59,6 +63,7 @@ extension AccessibilityService {
         else {
             throw .actionFailed(reason: "Could not describe the window frame.")
         }
+        try Self.ensureArmed(killSwitch)
         let positionStatus = AXUIElementSetAttributeValue(
             window, kAXPositionAttribute as CFString, positionValue)
         let sizeStatus = AXUIElementSetAttributeValue(
@@ -68,8 +73,11 @@ extension AccessibilityService {
         }
     }
 
-    func minimizeFocusedWindow(processIdentifier: pid_t, appName: String) throws(ExecutionError) {
+    func minimizeFocusedWindow(
+        processIdentifier: pid_t, appName: String, killSwitch: KillSwitch
+    ) throws(ExecutionError) {
         let window = try window(of: processIdentifier, appName: appName)
+        try Self.ensureArmed(killSwitch)
         let status = AXUIElementSetAttributeValue(
             window, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
         guard status == .success else {
@@ -77,7 +85,9 @@ extension AccessibilityService {
         }
     }
 
-    func restoreMinimizedWindow(processIdentifier: pid_t, appName: String) throws(ExecutionError) {
+    func restoreMinimizedWindow(
+        processIdentifier: pid_t, appName: String, killSwitch: KillSwitch
+    ) throws(ExecutionError) {
         let appElement = applicationElement(for: processIdentifier)
         var windowsValue: CFTypeRef?
         guard
@@ -90,6 +100,7 @@ extension AccessibilityService {
         else {
             throw .windowUnavailable(appName: appName)
         }
+        try Self.ensureArmed(killSwitch)
         let status = AXUIElementSetAttributeValue(
             minimizedWindow, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
         guard status == .success else {
@@ -98,6 +109,13 @@ extension AccessibilityService {
     }
 
     // MARK: - Helpers
+
+    /// The last check before an Accessibility call that changes something.
+    private static func ensureArmed(_ killSwitch: KillSwitch) throws(ExecutionError) {
+        guard killSwitch.isArmed else {
+            throw .stopped
+        }
+    }
 
     private func verifiedElement(
         number: Int, expected: UIElementSnapshot, processIdentifier: pid_t

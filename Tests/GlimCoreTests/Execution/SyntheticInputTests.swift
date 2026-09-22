@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import GlimCore
@@ -23,5 +24,34 @@ struct SyntheticInputTests {
     ])
     func allowedKeysMapToMacKeyCodes(key: AllowedKey, keyCode: Int) {
         #expect(Int(SyntheticInput.virtualKeyCode(for: key)) == keyCode)
+    }
+}
+
+struct SyntheticInputKillSwitchTests {
+    @Test func trippedKillSwitchBlocksKeyEventsAtTheLastMoment() {
+        let killSwitch = KillSwitch()
+        killSwitch.trip(.killHotkey)
+
+        #expect(throws: ExecutionError.stopped) {
+            try SyntheticInput.postKey(.tab, to: getpid(), killSwitch: killSwitch)
+        }
+    }
+
+    @Test func trippedKillSwitchBlocksTypedTextAtTheLastMoment() {
+        let killSwitch = KillSwitch()
+        killSwitch.trip(.stopButton)
+
+        #expect(throws: ExecutionError.stopped) {
+            try SyntheticInput.postText(Array("hi".utf16), to: getpid(), killSwitch: killSwitch)
+        }
+    }
+
+    @Test func trippedKillSwitchBlocksScrollingAtTheLastMoment() {
+        let killSwitch = KillSwitch()
+        killSwitch.trip(.humanTookOver)
+
+        #expect(throws: ExecutionError.stopped) {
+            try SyntheticInput.postScroll(.down, at: nil, to: getpid(), killSwitch: killSwitch)
+        }
     }
 }

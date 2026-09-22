@@ -47,8 +47,9 @@ enum SyntheticInput {
         return chunks
     }
 
-    static func postText(_ utf16Units: [UInt16], to processIdentifier: pid_t) throws(ExecutionError)
-    {
+    static func postText(
+        _ utf16Units: [UInt16], to processIdentifier: pid_t, killSwitch: KillSwitch
+    ) throws(ExecutionError) {
         let source = CGEventSource(stateID: .privateState)
         guard
             let keyDown = CGEvent(
@@ -64,10 +65,12 @@ enum SyntheticInput {
             keyUp.keyboardSetUnicodeString(
                 stringLength: units.count, unicodeString: units.baseAddress)
         }
-        post([keyDown, keyUp], to: processIdentifier)
+        try post([keyDown, keyUp], to: processIdentifier, killSwitch: killSwitch)
     }
 
-    static func postKey(_ key: AllowedKey, to processIdentifier: pid_t) throws(ExecutionError) {
+    static func postKey(
+        _ key: AllowedKey, to processIdentifier: pid_t, killSwitch: KillSwitch
+    ) throws(ExecutionError) {
         let source = CGEventSource(stateID: .privateState)
         let keyCode = virtualKeyCode(for: key)
         guard
@@ -76,12 +79,15 @@ enum SyntheticInput {
         else {
             throw .cannotCreateInputEvent
         }
-        post([keyDown, keyUp], to: processIdentifier)
+        try post([keyDown, keyUp], to: processIdentifier, killSwitch: killSwitch)
     }
 
-    static func postScroll(_ direction: ScrollDirection, to processIdentifier: pid_t)
-        throws(ExecutionError)
-    {
+    /// Scrolls at `location` (global top-left coordinates, such as the window's centre) so the
+    /// view under that point scrolls, as spec §8.1 describes.
+    static func postScroll(
+        _ direction: ScrollDirection, at location: CGPoint?, to processIdentifier: pid_t,
+        killSwitch: KillSwitch
+    ) throws(ExecutionError) {
         let lines = direction == .up ? linesPerScroll : -linesPerScroll
         guard
             let scroll = CGEvent(
@@ -90,11 +96,20 @@ enum SyntheticInput {
         else {
             throw .cannotCreateInputEvent
         }
-        post([scroll], to: processIdentifier)
+        if let location {
+            scroll.location = location
+        }
+        try post([scroll], to: processIdentifier, killSwitch: killSwitch)
     }
 
-    private static func post(_ events: [CGEvent], to processIdentifier: pid_t) {
+    /// Posts each event only if the kill switch is still armed at that exact moment.
+    private static func post(
+        _ events: [CGEvent], to processIdentifier: pid_t, killSwitch: KillSwitch
+    ) throws(ExecutionError) {
         for event in events {
+            guard killSwitch.isArmed else {
+                throw .stopped
+            }
             event.setIntegerValueField(.eventSourceUserData, value: glimEventMarker)
             event.postToPid(processIdentifier)
         }

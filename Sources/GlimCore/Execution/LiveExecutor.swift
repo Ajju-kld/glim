@@ -45,26 +45,30 @@ public struct LiveExecutor: ActionPerforming {
             let element = try targetElement(of: action)
             try await accessibility.press(
                 elementNumber: element.number, expected: element,
-                processIdentifier: processIdentifier)
+                processIdentifier: processIdentifier, killSwitch: killSwitch)
         case .typeText(_, _, let text):
             try await type(
                 text, into: try targetElement(of: action), processIdentifier: processIdentifier)
         case .pressKey(_, let key):
             try ensureArmed()
-            try SyntheticInput.postKey(key, to: processIdentifier)
+            try SyntheticInput.postKey(key, to: processIdentifier, killSwitch: killSwitch)
         case .scroll(_, let direction):
             try ensureArmed()
-            try SyntheticInput.postScroll(direction, to: processIdentifier)
+            let windowFrame = try await accessibility.focusedWindowFrame(
+                processIdentifier: processIdentifier, appName: appName)
+            try SyntheticInput.postScroll(
+                direction, at: CGPoint(x: windowFrame.midX, y: windowFrame.midY),
+                to: processIdentifier, killSwitch: killSwitch)
         case .moveWindow(_, let preset):
             try await moveWindow(of: processIdentifier, appName: appName, to: preset)
         case .minimizeWindow:
             try ensureArmed()
             try await accessibility.minimizeFocusedWindow(
-                processIdentifier: processIdentifier, appName: appName)
+                processIdentifier: processIdentifier, appName: appName, killSwitch: killSwitch)
         case .restoreWindow:
             try ensureArmed()
             try await accessibility.restoreMinimizedWindow(
-                processIdentifier: processIdentifier, appName: appName)
+                processIdentifier: processIdentifier, appName: appName, killSwitch: killSwitch)
         case .openApp, .speak:
             throw .unsupportedAction(action.step.kind)
         }
@@ -120,7 +124,8 @@ public struct LiveExecutor: ActionPerforming {
     ) async throws(ExecutionError) {
         try ensureArmed()
         try await accessibility.focusTextField(
-            elementNumber: element.number, expected: element, processIdentifier: processIdentifier)
+            elementNumber: element.number, expected: element, processIdentifier: processIdentifier,
+            killSwitch: killSwitch)
         let chunks = SyntheticInput.utf16Chunks(
             of: text, maximumUnitsPerChunk: SyntheticInput.maximumUnitsPerKeyEvent)
         for chunk in chunks {
@@ -130,7 +135,7 @@ public struct LiveExecutor: ActionPerforming {
             guard focusIsOnTarget else {
                 throw .focusNotOnTarget(label: element.label)
             }
-            try SyntheticInput.postText(chunk, to: processIdentifier)
+            try SyntheticInput.postText(chunk, to: processIdentifier, killSwitch: killSwitch)
             try await pause(for: SyntheticInput.pauseBetweenChunks)
         }
     }
@@ -154,7 +159,8 @@ public struct LiveExecutor: ActionPerforming {
             currentSize: currentFrame.size)
         try ensureArmed()
         try await accessibility.setFocusedWindowFrame(
-            targetFrame, processIdentifier: processIdentifier, appName: appName)
+            targetFrame, processIdentifier: processIdentifier, appName: appName,
+            killSwitch: killSwitch)
     }
 
     // MARK: - Helpers

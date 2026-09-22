@@ -44,8 +44,13 @@ public actor AccessibilityService: ScreenReading {
     private var currentProcessIdentifier: pid_t?
     private var electronAccessibilityEnabled: Set<pid_t> = []
 
-    /// Creates the service.
-    public init() {}
+    /// Creates the service and sets the one-second messaging timeout for every Accessibility
+    /// call this process makes. Setting it on an app element covers only that element, so the
+    /// system-wide element is where it must go.
+    public init() {
+        AXUIElementSetMessagingTimeout(
+            AXUIElementCreateSystemWide(), ScreenReadingLimits.messagingTimeoutSeconds)
+    }
 
     /// Whether macOS lets Glim use the Accessibility API.
     public nonisolated static var isTrusted: Bool {
