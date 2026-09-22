@@ -173,3 +173,22 @@ with 100 concurrent trips; handlers may read the switch without deadlocking;
 **TDD:** failed to compile (types missing); then 100 tests passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Tasks 10 and 11: Network policy and audit log
+
+**What:** `NetworkEndpoint` (Ollama `127.0.0.1:11434`, Laya `127.0.0.1:8791`, Jev
+`api.typesafe.ai:443`), `NetworkPolicy.validate(_:)`, `NetworkPolicyError`. `AuditLog` actor
+(JSON Lines, `audit-YYYY-MM-DD-NNN.jsonl` by UTC day and part), `AuditEvent`, `AuditEventKind`,
+`AuditRetention.standard` (7 days, 5 MB total, 1 MB per file), `AuditLogError`.
+
+**Why:** Glim can't be sandboxed, so the network allowlist is enforced in code. Tests reject
+`localhost`, other ports, http for Jev, look-alike hosts, `user@host` tricks and `file://`.
+The audit log answers "why did it do that?" (B-Q10); retention runs after every append.
+
+**Fixes during the task:** a local `events` variable shadowed the `events(in:)` method →
+renamed to `decodedEvents(in:)`. `#expect(try await ….isEmpty)` doesn't compile inside the
+macro → assign to a local first.
+
+**TDD:** failed with "cannot find 'AuditLog' in scope"; then 113 tests passed.
+
+**Gates:** `All gates passed.`
