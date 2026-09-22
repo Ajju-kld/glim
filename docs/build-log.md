@@ -507,3 +507,26 @@ would write outside the repo). Their logic lives in tested `GlimCore` types; the
 script covers the rest.
 
 **Gates:** `swift build` — no errors, no warnings. `All gates passed.` (265 tests)
+
+## 2026-09-23 — Task 32: Bundling and signing
+
+**What:** `Resources/Glim-Info.plist` (`dev.straxs.Glim`, `LSUIElement`, macOS 26, microphone and
+speech usage strings), `Resources/Testbed-Info.plist`, `Resources/Glim.entitlements` (only
+`com.apple.security.device.audio-input`), `scripts/build-app.sh` (release build → `build/Glim.app`
+with `Contents/Helpers/GlimWatchdog`, and `build/Testbed.app`; signs inside-out with Hardened
+Runtime; identity = `$GLIM_SIGNING_IDENTITY`, else the first Apple Development identity, else
+ad-hoc), `scripts/run.sh`.
+
+**Verified overnight (ad-hoc, so no keychain prompt could block):**
+- `codesign --verify --deep --strict` passes for both apps.
+- Flags `adhoc,runtime` (Hardened Runtime on); entitlements show only audio input.
+- Helper identifier `dev.straxs.Glim.Watchdog`.
+- An ad-hoc Testbed fails `identifier "dev.straxs.Glim.Testbed" and anchor apple generic`, so
+  Glim treats it as read-only, as documented. Build with your Apple Development identity to
+  test clicking in Testbed.
+
+**Fix:** the release build showed a "mutated after capture by sendable closure" warning in
+`DecisionPresenter` → a small holder object; debug and release builds are now warning-free.
+
+**Not done overnight:** launching the app. It would create Keychain items and Application
+Support files outside the repo, and needs you to grant permissions.

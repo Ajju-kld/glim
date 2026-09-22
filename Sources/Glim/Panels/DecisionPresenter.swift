@@ -29,18 +29,18 @@ final class DecisionPresenter: PersonDecisions {
     }
 
     func showGuardPopup(title: String, explanation: String, stepNumber: Int?) {
-        var panel: DecisionPanel?
+        let panelHolder = DecisionPanelHolder()
         let popup = GuardPopupView(
             title: title, explanation: explanation, stepNumber: stepNumber,
             onViewLog: { [weak self] in
-                self?.closeGuardPanel(panel)
+                self?.closeGuardPanel(panelHolder.panel)
                 self?.model?.openControlPanel(on: .activityLog)
             },
             onDismiss: { [weak self] in
-                self?.closeGuardPanel(panel)
+                self?.closeGuardPanel(panelHolder.panel)
             })
         let guardPanel = DecisionPanel(content: popup)
-        panel = guardPanel
+        panelHolder.panel = guardPanel
         guardPanels.append(guardPanel)
         guardPanel.show()
     }
@@ -69,13 +69,13 @@ final class DecisionPresenter: PersonDecisions {
         _ makeContent: (@escaping @MainActor (Bool) -> Void) -> Content
     ) async -> Bool {
         await withCheckedContinuation { continuation in
-            var panel: DecisionPanel?
+            let panelHolder = DecisionPanelHolder()
             let pendingDecision = PendingDecision(continuation: continuation) {
-                panel?.close()
+                panelHolder.panel?.close()
             }
             let decisionPanel = DecisionPanel(
                 content: makeContent { answer in pendingDecision.resolve(answer) })
-            panel = decisionPanel
+            panelHolder.panel = decisionPanel
             pendingDecisions.append(pendingDecision)
             decisionPanel.show()
             Task { @MainActor [weak self] in
@@ -89,4 +89,10 @@ final class DecisionPresenter: PersonDecisions {
             }
         }
     }
+}
+
+/// Lets a panel's own buttons close it: the closures are built before the panel exists.
+@MainActor
+private final class DecisionPanelHolder {
+    var panel: DecisionPanel?
 }
