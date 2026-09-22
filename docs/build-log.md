@@ -332,3 +332,18 @@ is deliberately not set because it disturbs window positioning in some apps.
 **TDD:** failed with "cannot find 'ScreenReadingLimits' in scope"; then 200 tests passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 22: Screen capture
+
+**What:** `ScreenshotCapturing`, `WindowScreenshotter` (ScreenCaptureKit single-window capture,
+fitted to 1,280 px on the longest side, PNG-encoded in memory), `PixelSize`.
+
+**Why:** The vision fallback for questions on screens with little accessible text (spec §10).
+Screenshots never touch the disk (§9.7). Screen Recording is preflighted and requested only on
+first need; tests construct the screenshotter with `mayPromptForPermission: false` so they
+can never pop a system prompt.
+
+**TDD:** failed with "cannot find 'WindowScreenshotter' in scope"; then 204 tests passed
+(PNG signature, size fitting, and "permission missing → clear error" without prompting).
+
+**Gates:** `All gates passed.`
