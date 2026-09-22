@@ -276,3 +276,16 @@ unless enabled — each case is tested to send nothing. Offline → `checkerOffl
 **TDD:** failed with "cannot find type 'LayaChecker' in scope"; then 177 tests passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 19: Laya service scripts — Part 2 complete
+
+**What:** `scripts/start-laya.sh` (pinned commit `bafba59…`, refuses a mismatch; source, venv
+and `HF_HOME` model cache all inside `services/laya/`; binds `127.0.0.1:8791`) and
+`services/laya/README.md` with review notes. `.gitignore` covers the downloaded parts.
+
+**Why:** Spec §9.5 requires a pinned, reviewed install. Reviewed `serve.py`: binds loopback,
+4 MB body cap, no shell in the server path, no CORS, outbound HTTP only in the unused remote
+backend. **Not run overnight** — it downloads third-party code and a model; the owner should
+re-check the pin (commands in the README) and run it.
+
+**Check:** `bash -n scripts/start-laya.sh` → syntax ok.
