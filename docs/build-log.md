@@ -106,3 +106,18 @@ twice.
 **TDD:** failed with "cannot find 'SafetyPolicy' in scope"; then 27 tests passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 4: Risk classifier
+
+**What:** `RiskLevel` and `RiskClassifier`: whole-word, case-insensitive phrase matching across
+every text describing a control; Forbidden wins over Confirm.
+
+**Why:** Labels come in many spellings. Normalizing drops apostrophes ("Don’t Save" = "Dont
+Save") and turns hyphens, tabs, ellipses and non-breaking spaces into single spaces, so
+"SIGN-OUT" and "Sign Out" are still forbidden (review focus 1), while "Deleted Items",
+"Sender" and "Postpone" stay safe. Blank phrases in an edited list are ignored so they can't
+match everything.
+
+**TDD:** failed with "cannot find type 'RiskLevel' in scope"; then 35 tests passed.
+
+**Gates:** `All gates passed.`
