@@ -192,3 +192,22 @@ macro → assign to a local first.
 **TDD:** failed with "cannot find 'AuditLog' in scope"; then 113 tests passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Tasks 12 and 13: Settings, loosening classifier, sealed store
+
+**What:** `GlimSettings`, `JevSettings` (off; messaging excluded), `SafetyLimitName`,
+`SettingsLoosening`, `SafetyChangeClassifier`. `SettingsStore` actor with an HMAC-SHA256 seal
+(`SettingsSeal`, `SealedSettingsFile`), `SealKeyProviding` and `OwnerAuthenticating` protocols,
+`SettingsLoadOutcome`, `SettingsStoreError`.
+
+**Why:** B-Q13/13b: everything is editable, but loosening needs Touch ID. The classifier lists
+each loosening: removed phrases (a change of case alone isn't one), apps moved to a less
+restrictive tier (removing an app from the list counts, relative to the default tier), a raised
+default tier, loosened limits, enabling Jev, removing a Jev exclusion. The seal stops someone
+editing `settings.json` directly to skip Touch ID; a missing, empty, non-JSON, edited or
+foreign-key file loads safe defaults and is audited (review focus 4). After the owner prompt
+the store re-checks that nothing changed meanwhile (actor reentrancy).
+
+**TDD:** failed to compile (types missing); then 136 tests passed.
+
+**Gates:** `All gates passed.`
