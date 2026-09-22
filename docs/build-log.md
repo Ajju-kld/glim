@@ -240,3 +240,21 @@ check that backs it up is tested.
 **TDD:** failed with "cannot find type 'OllamaClient' in scope"; then 147 tests passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 16: Planner
+
+**What:** `Planner` (`makePlan`, `pickTarget`, `answerQuestion`), `PlanningContext` (labels
+only), `PlannerResult`, `TargetChoice`, `PlannerError`, `PlannerSchemas` (JSON schemas built
+from the enums, so the model can only name allowed actions, keys, directions and presets),
+`PlannerPrompts`, `PlanAnswer` (decoded JSON → typed `StepAction` with per-field checks), and
+`ElementRoles` (clickable and text-entry roles; password fields excluded).
+
+**Why:** The model answers in schema-constrained JSON, then code validates it again: unknown
+actions like `runShell`, missing or blank apps, a `delete` key and free-form window coordinates
+all become model errors (re-asked, counted as a try). Extra fields such as `"command":"rm -rf ~"`
+are ignored. Target picks can only name a *compatible* element from the fresh table; the prompt
+lists only those elements, labels only, never field values.
+
+**TDD:** failed to compile (types missing); then 161 tests passed.
+
+**Gates:** `All gates passed.`
