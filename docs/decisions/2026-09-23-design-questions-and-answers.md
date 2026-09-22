@@ -1,0 +1,232 @@
+# Glim — Design Questions and Answers
+
+Every question asked while designing Glim, the options offered, the recommendation, and the
+answer given. Answers are recorded as chosen; free-text notes are quoted exactly as typed.
+
+- **Dates:** 2026-09-22 → 2026-09-23
+- **Result:** `docs/specs/2026-09-23-design.md`
+
+---
+
+## Part 0 — Starting requests (verbatim)
+
+1. "check what is laya recently become deccision model can we make any personal voice and screen
+   reading asistant for the mac to open and control the laptop"
+2. "i want to use the my voice check any github built that"
+3. "can it view the screen and do task"
+4. "create a folder here and create that project for me which should safe and use ollama here okay
+   and it should bear a kill switch and use native code use swift and document eachstep as you do
+   and please ensure it is sandboxed or safe to use"
+
+### Research that shaped the design
+
+| Finding | Effect on design |
+|---|---|
+| Laya (Convai, Apache-2.0, released ~2026-09-19) is a 421M/322M *decision* model: picks from options with probabilities, cannot write text, cannot see images | Can only be a checker/picker, never the planner |
+| Base Laya picks the right UI control ~10% of the time among ~45; browser-tuned `cklxx/laya-browser` v10s reaches 0.63 top-1 | Use v10s; its vote counts only when confident (B-Q23) |
+| Laya runs today as a local Python service (`localdecide serve`, 127.0.0.1, no auth); CoreML ports exist but only for base weights | Service in v1, CoreML in v2 (B-Q21) |
+| Jev (TypeSafe) is a hosted API: `POST https://api.typesafe.ai/v1/systemone`, Bearer key, US servers, no training on customer data, ~$0.042 per million input tokens, early access, zero-retention only for enterprise | Opt-in, off by default (B-Q16) |
+| Existing GitHub projects (macos-use, jarvis, jev-voice, Samuel, SpectraVoice, UI-TARS-desktop) each miss at least one of: local, voice, screen, open apps, multi-step, safety | Build our own |
+| App Sandbox blocks the Accessibility API needed to control other apps | Hardened Runtime + safety enforced in code (A-Q2) |
+
+---
+
+## Part A — Brainstorming (2026-09-22)
+
+### A-Q1 · v1 scope
+**Asked:** Which jobs should v1 do? Options: open/switch/quit apps · click + type in apps ·
+read screen aloud / answer · multi-step tasks.
+**Answer:** All four, plus (typed) "move windows".
+
+### A-Q2 · Safety architecture
+**Asked:** Full App Sandbox is impossible (it forbids the Accessibility API). Options:
+(1) single app + safety gates, (2) split: sandboxed brain + unsandboxed helper.
+**Recommended:** Single app + safety gates.
+**Answer:** Single app + safety gates.
+
+### A-Q3 · Autonomy
+**Asked:** When should it stop and ask? Options: approve plan + confirm risky · confirm every
+step · only confirm risky.
+**Recommended:** Approve plan, confirm risky.
+**Answer:** Approve plan, confirm risky.
+
+### A-Q4 · Activation
+**Asked:** How do you start it listening? Options: push-to-talk hotkey · wake word · both.
+**Recommended:** Push-to-talk.
+**Answer:** Push-to-talk hotkey.
+
+### A-Q5 · Planner
+**Asked:** How should the planner handle screens that change mid-task? Options: plan steps then
+pick live · full plan with exact clicks upfront · pure step loop.
+**Recommended:** Plan steps, then pick live.
+**Answer:** Plan steps, then pick live.
+
+### A-Q6 · Design section 1 (architecture and components)
+**Answer:** Looks right, continue.
+
+### A-Q7 · Design section 2 (safety model and kill switch)
+**Answer:** Change something — "dont allow dangerous command like deleting if safe gaude limit
+touch show a popup".
+**Resulting change:** Three risk tiers (Forbidden = always blocked, Confirm, Safe); every guard
+hit shows a popup and stops the task. Revised section → **Looks right, continue.**
+
+### A-Q8 · Design section 3 (data flow, errors, testing, docs)
+**Answer:** Looks right, write spec.
+
+---
+
+## Part B — Senior-dev grilling (2026-09-23)
+
+Request (verbatim): "review the spec and question and grill me deeper like a senior dev and make
+sure the code should be self readable and keep standard" — then "ask one by one".
+
+### B-Q1 · App trust model
+**Problem found:** The blocklist fails open — VS Code, Xcode, Cursor and Warp have built-in
+terminals and were not blocked.
+**Options:** Allowlist, default-deny · blocklist + add IDEs.
+**Recommended:** Allowlist, default-deny.
+**Answer:** Allowlist, default-deny.
+
+### B-Q2 · Which app groups start with full control
+**Options (multi-select):** Notes & writing · Calendar & office · Media · Messaging (not
+recommended).
+**Answer:** All four, plus (typed) "moving windows side minimizing and doing multipel thing as a
+plan".
+**Resulting change:** Messaging gets full control (Send / Return still confirm). New window
+actions: minimize and restore; window moves can target any running app; multi-step window
+arrangements.
+
+### B-Q3 · Never-touch list
+**Options:** Strict core list · strict + dev & AI apps.
+**Recommended:** Strict core list.
+**Answer:** Strict core list — note: "need dev and ai apps also".
+
+### B-Q3b · Dev and AI apps (clarifying the note)
+**Options:** Supervised (confirm every step) · read-only is enough · full control like Notes.
+**Recommended:** Supervised.
+**Answer:** Supervised: confirm every step. Terminals stay read-only by default.
+
+### B-Q4 · Chosen element must match the plan
+**Problem found:** Plan says "click New Note", a tricked model could pick "Archive" (not a
+forbidden word) and nothing caught it.
+**Options:** mismatch → confirm popup · mismatch → deny + stop · no check.
+**Recommended:** Confirm popup.
+**Answer:** Mismatch → confirm popup.
+
+### B-Q5 · Human takeover
+**Options:** any human input stops it · only clicks/keys · no auto-stop.
+**Recommended:** Any human input stops it.
+**Answer:** Yes, any human input stops it.
+
+### B-Q6 · Kill switch strength
+**Problem found:** An in-app hotkey dies if the app freezes.
+**Options:** in-app + separate watchdog · in-app only.
+**Recommended:** In-app + watchdog.
+**Answer:** In-app + separate watchdog.
+
+### B-Q7 · Word lists
+**Options:** add all (new Forbidden + new Confirm) · add Forbidden only.
+**Recommended:** Add all.
+**Answer:** Add all.
+
+### B-Q8 · What the planner may see
+**Options:** labels only · full screen text.
+**Recommended:** Labels only.
+**Answer:** Labels only.
+
+### B-Q9 · Code standards
+**Options:** accept as written · change something.
+**Recommended:** Accept.
+**Answer:** Accept as written. (Full rules in spec §14.)
+
+### B-Q10 · Audit log privacy
+**Options:** full log, 7-day auto-delete · mask typed text · keep forever.
+**Recommended:** Full log, 7-day auto-delete.
+**Answer:** Full log, 7-day auto-delete.
+
+### B-Q11 · Safety testbed app
+**Options:** build Testbed.app · test on real apps.
+**Recommended:** Build it.
+**Answer:** Yes, build Testbed.app.
+
+### B-Q12 · Speed vs smarts
+**Options:** start 8b, measure · speed first 4b · two models.
+**Recommended:** Start 8b, measure.
+**Answer:** Start 8b, measure, then decide.
+
+### B-Q13 · Which safety lists are editable
+**Options:** core locked, tiers editable · everything editable · everything locked.
+**Recommended:** Core locked, tiers editable.
+**Answer:** Everything editable.
+
+### B-Q13b · Protecting edits that loosen safety
+**Options:** Touch ID to loosen · confirm dialog only · no extra guard.
+**Recommended:** Touch ID to loosen.
+**Answer:** Touch ID to loosen.
+
+### B-Q14 · Technical defaults (15 items)
+**Answer:** Accept all. (Listed in spec §16.)
+
+### B-Q15 · Laya
+User asked (verbatim): "does it use laya or jev also that we see".
+**Options:** v1 Ollama only with Laya slot ready · Laya as second opinion · Laya as main picker.
+**Recommended:** v1 Ollama only, Laya slot ready.
+**Answer:** Laya as second opinion.
+
+### B-Q16 · Jev
+User said (verbatim): "also jev".
+**Privacy warning given:** Jev sends goal, app name, window title and control labels to TypeSafe
+(US). Paid key.
+**Options:** opt-in extra checker, off by default · Jev replaces Laya · Jev as main picker.
+**Recommended:** Opt-in, off by default.
+**Answer:** Opt-in extra checker, OFF by default.
+
+### B-Q17 · Checker unavailable
+**Options:** fall back to confirm-every-step · action mode off · continue without checker.
+**Recommended:** Fall back to confirm-every-step.
+**Answer:** Fall back to confirm-every-step.
+
+### Mockups offer
+**Asked:** Show orb/control-panel mockups in a browser tab?
+**Answer (verbatim):** "not in the browswer as widet" → the orb is a native desktop widget;
+sketches stay in the terminal.
+
+### B-Q18 · Where the orb appears
+User asked (verbatim): "also need control pannel a beatiful control pane and orb widget when
+press and hold speaks it appears".
+**Options:** bottom-center above the Dock · notch pill (Dynamic Island) · next to the cursor.
+**Recommended:** Bottom-center.
+**Answer:** Notch pill (Dynamic Island).
+
+### B-Q19 · Pill vs panels for decisions
+**Options:** all in the expanding pill · pill for status, panels for decisions.
+**Recommended:** All in the pill.
+**Answer:** Pill for status, panels for decisions.
+
+### B-Q20 · Control panel style
+**Options:** sidebar + dashboard (Liquid Glass) · single dashboard page · menu-bar dropdown only.
+**Recommended:** Sidebar + dashboard.
+**Answer:** Sidebar + dashboard, Liquid Glass.
+
+### B-Q21 · How Laya runs
+**Options:** local service now (counts only when sure) · CoreML in-app · service now, CoreML
+later · drop Laya.
+**Recommended:** Local service now, counts only when sure.
+**Answer:** Service now, CoreML later.
+
+### B-Q22 · Name
+User asked (verbatim): "also need a good readme for this folder a unique one show this orb also
+and give a good name".
+**Options:** Glim · Notchling · Mote · Wisp.
+**Recommended:** Glim.
+**Answer:** Glim.
+
+### B-Q23 · When a checker's disagreement counts
+**Options:** only when the checker is confident · every disagreement.
+**Recommended:** Only when confident.
+**Answer:** Only when Laya is confident. (Same rule for Jev.)
+
+### Final confirmation
+**Asked:** Is the summary the full shared understanding?
+**Answer:** Yes, update the spec. Then (verbatim): "doucment thsee questions you asked and also
+the answers i given okay" → this document.
