@@ -77,3 +77,18 @@ may be written by someone else and must not change the risk verdict.
 after implementing, 9 tests (18 cases) passed.
 
 **Gates:** `scripts/check.sh` → `All gates passed.`
+
+## 2026-09-23 — Task 2: Trust tiers and app trust policy
+
+**What:** `TrustTier` (Never-touch < Read-only < Supervised < Full control, `Comparable`),
+`TierPermission`, `AppTrustPolicy` with default-deny lookup and the §8.2 permission matrix.
+
+**Why:** Default-deny (B-Q1): unknown apps are read-only. `highestTierForUnverifiedApps` caps
+any app whose signature failed validation at read-only, so an impostor using
+`com.apple.Notes` gains nothing, while an impostor of a never-touch app stays never-touch
+(review focus 3).
+
+**TDD:** failed with "cannot find 'TrustTier' in scope"; then 6 tests incl. a 25-case
+permission matrix passed.
+
+**Gates:** `All gates passed.` (15 tests)
