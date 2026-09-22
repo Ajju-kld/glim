@@ -92,3 +92,17 @@ any app whose signature failed validation at read-only, so an impostor using
 permission matrix passed.
 
 **Gates:** `All gates passed.` (15 tests)
+
+## 2026-09-23 — Task 3: Safety limits, risk word lists, safe defaults
+
+**What:** `SafetyLimits` (20 actions, 3 tries, 0.25 s spacing, 180 s timeout, 3 unchanged,
+500 characters), `RiskWordLists`, `SafetyDefaults` (the Forbidden/Confirm phrases and the four
+tier lists with real bundle IDs read from this Mac), `SafetyPolicy.safeDefaults`.
+
+**Why:** One named home for every business rule, each with a doc comment saying business rule
+or tunable. Tier lists are applied most-restrictive-last, and a test proves no app is listed
+twice.
+
+**TDD:** failed with "cannot find 'SafetyPolicy' in scope"; then 27 tests passed.
+
+**Gates:** `All gates passed.`
