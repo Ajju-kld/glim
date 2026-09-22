@@ -121,3 +121,18 @@ match everything.
 **TDD:** failed with "cannot find type 'RiskLevel' in scope"; then 35 tests passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Tasks 5 and 6: Plan matcher and action limiter
+
+**What:** `PlanMatcher` (the chosen element must share a meaningful word with the approved
+target; filler words like "the", "button", "click" are ignored; simple plural folding).
+`LimitViolation` + `ActionLimiter` (timeout → actions → tries → no-change streak → spacing,
+with `waitBeforeNextAction` so the runner waits instead of failing).
+
+**Why:** B-Q4: a tricked pick like "Archive" for "New Note" must ask the person. Targets with no
+meaningful words fail closed (review focus 5). The limiter takes time as a parameter so tests
+are exact and never sleep.
+
+**TDD:** failed with "cannot find 'PlanMatcher' / 'ActionLimiter' in scope"; then 52 tests passed.
+
+**Gates:** `All gates passed.`
