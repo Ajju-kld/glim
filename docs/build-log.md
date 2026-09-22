@@ -372,3 +372,24 @@ and Dock offsets, chunking with emoji joiners, key codes, kill switch stops befo
 Live pressing and typing need Accessibility permission → covered by the manual test script.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 24: Takeover monitor and watchdog link
+
+**What:** `HumanInputClock` + live `HardwareInputClock` (`CGEventSource.secondsSinceLastEventType`
+on `.hidSystemState`), `TakeoverMonitor` (settle delay 1 s, poll 50 ms), `WatchdogSignal`,
+`WatchdogLink` (Darwin notifications via libnotify, process liveness via `kill(pid, 0)`),
+`WatchdogStopResponder`.
+
+**Spike S2 resolved by design:** Glim posts its events straight to the target process, so they
+never enter the hardware input state; only a real person resets that clock. No Input Monitoring
+permission needed. A 1-second settle delay ignores the hand still moving after clicking Approve.
+
+**Why the link carries no data:** anyone on the Mac can post a Darwin notification, so the
+signals can only *stop* Glim, never make it act.
+
+**Fix during the task:** libnotify lives in its own `notify` module (not `Darwin`).
+
+**TDD:** failed to compile (types missing); then 226 tests passed, including a real round trip
+of Darwin notifications (unique name prefix per test) and the stop → acknowledge handshake.
+
+**Gates:** `All gates passed.`
