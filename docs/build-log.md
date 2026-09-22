@@ -530,3 +530,16 @@ ad-hoc), `scripts/run.sh`.
 
 **Not done overnight:** launching the app. It would create Keychain items and Application
 Support files outside the repo, and needs you to grant permissions.
+
+## 2026-09-23 — Task 33: README, animated notch pill, manual tests — Part 4 complete
+
+**What:** `README.md` (hero animation, examples, flow diagram in Mermaid, trust tiers, kill switch,
+privacy, quick start, pill states, development, documents, uninstall, FAQ, credits),
+`docs/assets/glim-pill.svg` (pure SMIL animation, no scripts: the pill grows from the notch,
+listens with a live waveform while the words type out, acts in green, says Done — looping), and
+`docs/manual-tests.md` (T1–T10 covering all eight success criteria plus Touch ID and tamper
+detection, with a results table).
+
+**Checks:** `xmllint --noout` passes; a rendered still frame was reviewed. That review led to
+removing the Apple-logo glyph (it doesn't render outside Apple fonts) and left-anchoring the
+menu-bar text.

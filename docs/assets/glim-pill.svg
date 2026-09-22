@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="280" viewBox="0 0 820 280" role="img" aria-labelledby="glimTitle glimDescription">
+  <title id="glimTitle">Glim — the notch pill</title>
+  <desc id="glimDescription">Animated: a black pill grows out of the MacBook notch. Glim listens while a waveform dances and your words appear, then acts step by step in green, then says Done.</desc>
+  <defs>
+    <linearGradient id="wallpaper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#150f3d"/>
+      <stop offset="0.55" stop-color="#2a1b6e"/>
+      <stop offset="1" stop-color="#0c3456"/>
+    </linearGradient>
+    <radialGradient id="orb" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="0.35" stop-color="#7dd3fc" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow" x="-40%" y="-80%" width="180%" height="260%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <clipPath id="typedWords">
+      <rect x="300" y="44" width="0" height="34">
+        <animate attributeName="width" values="0;290;290;0" keyTimes="0;0.34;0.44;0.45" dur="9s" repeatCount="indefinite"/>
+      </rect>
+    </clipPath>
+    <clipPath id="frame">
+      <rect width="820" height="280" rx="20"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif">
+    <rect width="820" height="280" fill="url(#wallpaper)"/>
+
+    <!-- Menu bar -->
+    <rect width="820" height="32" fill="#000" opacity="0.28"/>
+    <text x="22" y="21" fill="#fff" font-size="13" font-weight="600">Notes</text>
+    <text x="74" y="21" fill="#e5e7eb" font-size="13">File   Edit   Format   View</text>
+    <text x="684" y="21" fill="#e5e7eb" font-size="13">✦    ⌃⌥V    9:41</text>
+
+    <!-- Glow behind the pill: cyan while listening, green while acting -->
+    <rect x="230" y="18" width="360" height="86" rx="34" filter="url(#softGlow)" fill="#22d3ee" opacity="0.5">
+      <animate attributeName="fill" values="#22d3ee;#22d3ee;#34d399;#34d399" keyTimes="0;0.45;0.46;1" dur="9s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.3;0.65;0.3" dur="1.8s" repeatCount="indefinite"/>
+    </rect>
+
+    <!-- The pill, merged with the notch -->
+    <path d="M220 0 H600 V74 A22 22 0 0 1 578 96 H242 A22 22 0 0 1 220 74 Z" fill="#000"/>
+    <path d="M220 0 H600 V74 A22 22 0 0 1 578 96 H242 A22 22 0 0 1 220 74 Z" fill="none" stroke="#22d3ee" stroke-opacity="0.35" stroke-width="1.5">
+      <animate attributeName="stroke" values="#22d3ee;#22d3ee;#34d399;#34d399" keyTimes="0;0.45;0.46;1" dur="9s" repeatCount="indefinite"/>
+    </path>
+
+    <!-- Phase 1: listening -->
+    <g>
+      <animate attributeName="opacity" values="1;1;0;0" keyTimes="0;0.44;0.45;1" dur="9s" repeatCount="indefinite"/>
+      <circle cx="252" cy="64" r="15" fill="url(#orb)">
+        <animate attributeName="r" values="12;16;12" dur="1.2s" repeatCount="indefinite"/>
+      </circle>
+      <g fill="#22d3ee">
+        <rect x="274" y="58" width="4" height="12" rx="2">
+          <animate attributeName="height" values="6;22;9;18;6" dur="0.9s" repeatCount="indefinite"/>
+          <animate attributeName="y" values="61;53;59.5;55;61" dur="0.9s" repeatCount="indefinite"/>
+        </rect>
+        <rect x="281" y="58" width="4" height="12" rx="2">
+          <animate attributeName="height" values="14;6;20;8;14" dur="0.8s" repeatCount="indefinite"/>
+          <animate attributeName="y" values="57;61;54;60;57" dur="0.8s" repeatCount="indefinite"/>
+        </rect>
+        <rect x="288" y="58" width="4" height="12" rx="2">
+          <animate attributeName="height" values="8;18;6;22;8" dur="1s" repeatCount="indefinite"/>
+          <animate attributeName="y" values="60;55;61;53;60" dur="1s" repeatCount="indefinite"/>
+        </rect>
+      </g>
+      <text x="304" y="69" fill="#fff" font-size="15" font-weight="500" clip-path="url(#typedWords)">open notes and write buy milk</text>
+    </g>
+
+    <!-- Phase 2: acting -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.45;0.46;0.8;0.81;1" dur="9s" repeatCount="indefinite"/>
+      <path d="M254 48 L244 67 H253 L249 82 L262 60 H253 Z" fill="#34d399">
+        <animate attributeName="opacity" values="1;0.45;1" dur="0.9s" repeatCount="indefinite"/>
+      </path>
+      <text x="276" y="69" fill="#fff" font-size="15" font-weight="500">2/3   Click “New Note” in Notes</text>
+      <circle cx="574" cy="64" r="13" fill="#ef4444" opacity="0.9"/>
+      <rect x="569" y="59" width="10" height="10" rx="2" fill="#fff"/>
+    </g>
+
+    <!-- Phase 3: done -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.81;0.82;1" dur="9s" repeatCount="indefinite"/>
+      <circle cx="254" cy="64" r="12" fill="#34d399"/>
+      <path d="M248 64 L252.5 68.5 L260.5 59.5" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="276" y="69" fill="#fff" font-size="15" font-weight="600">Done</text>
+    </g>
+
+    <!-- Wordmark -->
+    <text x="410" y="170" fill="#fff" font-size="40" font-weight="800" text-anchor="middle" letter-spacing="1">Glim</text>
+    <text x="410" y="202" fill="#c7d2fe" font-size="16" text-anchor="middle">A glimmer in your notch that runs your Mac — safely.</text>
+    <text x="410" y="236" fill="#a5b4fc" font-size="13" text-anchor="middle">Local AI  ·  Hold ⌃⌥V to talk  ·  Kill switch ⌃⌥⌘K  ·  The AI proposes, code decides, you approve</text>
+  </g>
+</svg>
