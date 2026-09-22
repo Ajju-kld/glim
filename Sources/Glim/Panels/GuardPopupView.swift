@@ -30,7 +30,6 @@ struct GuardPopupView: View {
                 Spacer()
                 Button("View log") { onViewLog() }
                 Button("OK") { onDismiss() }
-                    .keyboardShortcut(.defaultAction)
                     .buttonStyle(.glassProminent)
             }
         }

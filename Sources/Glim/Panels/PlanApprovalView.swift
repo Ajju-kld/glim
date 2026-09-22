@@ -41,9 +41,8 @@ struct PlanApprovalView: View {
             HStack {
                 CountdownText(deadline: deadline)
                 Spacer()
-                Button("Cancel") { onDecision(false) }
-                    .keyboardShortcut(.cancelAction)
-                Button("Approve") { onDecision(true) }
+                ClickOnlyButton(title: "Cancel") { onDecision(false) }
+                ClickOnlyButton(title: "Approve") { onDecision(true) }
                     .buttonStyle(.glassProminent)
             }
         }

@@ -61,9 +61,8 @@ struct ConfirmationView: View {
             HStack {
                 CountdownText(deadline: deadline)
                 Spacer()
-                Button("Stop", role: .destructive) { onDecision(false) }
-                    .keyboardShortcut(.cancelAction)
-                Button("Allow once") { onDecision(true) }
+                ClickOnlyButton(title: "Stop", role: .destructive) { onDecision(false) }
+                ClickOnlyButton(title: "Allow once") { onDecision(true) }
                     .buttonStyle(.glassProminent)
             }
         }

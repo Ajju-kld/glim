@@ -35,7 +35,7 @@ final class NotchPillController {
         }
         let geometry = NotchGeometry(screen: screen)
         if panel.contentView == nil || panel.frame != geometry.frame {
-            panel.contentView = NSHostingView(
+            panel.contentView = ClickThroughHostingView(
                 rootView: NotchPillView(notchHeight: geometry.notchHeight).environment(model))
             panel.setFrame(geometry.frame, display: true)
         }
