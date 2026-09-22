@@ -311,3 +311,24 @@ Apple Development identity to test clicks (see README).
 **TDD:** failed with "cannot find type 'AppResolver' in scope"; then 191 tests passed.
 
 **Gates:** `All gates passed.`
+
+## 2026-09-23 — Task 21: Accessibility reader and element table
+
+**What:** `AccessibilityNode` (value tree), `ElementTableBuilder` (pure), `ElementTable`,
+`ScreenSnapshot`, `ScreenReading`, `ScreenReadingError`, `ScreenReadingLimits` (depth 25,
+2,000 nodes, 80 listed, 4,000 readable characters, 1.5 s walk, 1 s per-app timeout), and the live
+`AccessibilityService` actor.
+
+**Why:** All `AXUIElement` handles stay inside one actor; the rest of Glim sees plain values and
+element numbers. The builder lists only enabled, visible, labelled click/type targets, falls back
+to a button's inner text or a field's placeholder for labels, and never includes password
+fields, not even in the readable text. Attributes are fetched in one round trip per node.
+Electron apps get `AXManualAccessibility` so their controls appear; `AXEnhancedUserInterface`
+is deliberately not set because it disturbs window positioning in some apps.
+
+**Live tests:** a real-window test runs only when the test runner has Accessibility permission
+(skipped overnight); the "not trusted → clear error" path is tested now.
+
+**TDD:** failed with "cannot find 'ScreenReadingLimits' in scope"; then 200 tests passed.
+
+**Gates:** `All gates passed.`
