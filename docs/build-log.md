@@ -220,3 +220,23 @@ cannot do, Touch ID for loosening, and the audit log.
 
 **Part 1 result:** the whole safety core is pure, tested Swift with no permissions needed —
 136 tests across 14 suites, strict lint clean.
+
+## 2026-09-23 — Task 15: HTTP transport and Ollama client
+
+**What:** `JSONValue` (literal-friendly JSON for schemas and bodies), `HTTPTransport`,
+`URLSessionTransport` (ephemeral session; refuses every redirect via a task delegate),
+`PolicyEnforcingTransport` (validates each request against `NetworkPolicy` and rejects a
+response that came from a different address), `LanguageModel`, `LanguageModelRequest`,
+`LanguageModelError` (with the exact fix command), `OllamaClient` (`/api/chat` with
+`stream: false`, `think: false`, `format` = JSON schema, temperature 0, 60 s timeout;
+`/api/tags` for the setup check).
+
+**Why:** One choke point for all traffic. Redirects are refused because a 307 would re-send the
+request body to wherever the server points, outside the allowlist.
+
+**Not unit-tested:** the redirect-refusing delegate needs a real server. The post-response address
+check that backs it up is tested.
+
+**TDD:** failed with "cannot find type 'OllamaClient' in scope"; then 147 tests passed.
+
+**Gates:** `All gates passed.`
