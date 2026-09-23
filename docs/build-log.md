@@ -981,3 +981,20 @@ Live, untrained v10s with the app and window now sent: confidence drops slightly
 is trained on Mac examples.
 
 **Gates:** `All gates passed.` — 469 tests in 73 suites; 24 Laya training tests.
+
+## 2026-09-23 — Disk image and command-line install
+
+The owner asked for an installer disk image and a command to install from it.
+
+- `scripts/make-dmg.sh` builds the app, stages `Glim.app` beside an Applications shortcut, and
+  writes a compressed, signed `build/Glim-<version>.dmg` (version from `Glim-Info.plist`;
+  3.2 MB for 1.0.0). `hdiutil verify` and `codesign --verify` run on the result.
+- `scripts/install.sh` mounts the disk image inside `build/`, verifies the app's signature,
+  replaces the installed copy with `ditto`, verifies it again and names the missing Ollama
+  model if there is one. Options: `--user` (`~/Applications`), `--destination DIR`,
+  `--dmg PATH`, `--open`. It quits Glim only when the running copy is the one being replaced;
+  the first draft quit any running Glim and did so during testing.
+- `scripts/signing-identity.sh` holds the identity choice `build-app.sh` already made, so the app
+  and the disk image are signed alike.
+- Not notarized: signed with an Apple Development certificate, so other Macs' Gatekeeper
+  refuses it. Tested by installing into a folder inside `build/`, never `/Applications`.

@@ -159,6 +159,19 @@ scripts/run.sh --testbed
    fallback).
 5. **Practice on Testbed first** — see [docs/manual-tests.md](docs/manual-tests.md).
 
+### Install as a regular app
+
+```sh
+scripts/make-dmg.sh             # builds build/Glim-<version>.dmg: open it, drag Glim onto Applications
+scripts/install.sh --open       # or install from the command line into /Applications and open it
+scripts/install.sh --user       # into ~/Applications instead (no admin rights needed)
+```
+
+`install.sh` builds the disk image when there isn't one, checks the app's signature, replaces an
+installed copy (quitting it only if that copy is the one running) and tells you if the Ollama
+model is missing. The disk image is signed with the same identity as the app but not notarized,
+so it's meant for Macs you build on; on another Mac, Gatekeeper will refuse it.
+
 `scripts/build-app.sh` signs with your Apple Development identity when you have one. That keeps
 permission grants across rebuilds, and lets Glim trust Testbed (ad-hoc-signed apps are always
 read-only).
@@ -249,7 +262,8 @@ services/laya/      the local Laya service launcher and its training pipeline
 
 ```sh
 pkill -x Glim
-rm -rf build/Glim.app ~/Library/Application\ Support/Glim   # also removes saved Laya examples
+rm -rf /Applications/Glim.app ~/Applications/Glim.app build/Glim.app
+rm -rf ~/Library/Application\ Support/Glim                   # also removes saved Laya examples
 security delete-generic-password -s dev.straxs.Glim.settings-seal
 security delete-generic-password -s dev.straxs.Glim.jev     # only if you saved a Jev key
 tccutil reset All dev.straxs.Glim                            # revokes Glim's permissions

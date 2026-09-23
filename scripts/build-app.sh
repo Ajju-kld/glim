@@ -15,13 +15,7 @@ readonly GLIM_APP="$OUTPUT_DIRECTORY/Glim.app"
 readonly TESTBED_APP="$OUTPUT_DIRECTORY/Testbed.app"
 readonly WATCHDOG_IDENTIFIER="dev.straxs.Glim.Watchdog"
 
-signing_identity="${GLIM_SIGNING_IDENTITY:-}"
-if [[ -z "$signing_identity" ]]; then
-  signing_identity="$(security find-identity -v -p codesigning | awk -F'"' '/Apple Development/ { print $2; exit }')"
-fi
-if [[ -z "$signing_identity" ]]; then
-  signing_identity="-"
-fi
+signing_identity="$(scripts/signing-identity.sh)"
 
 echo "==> Building ($CONFIGURATION)"
 for product in Glim GlimWatchdog Testbed; do
