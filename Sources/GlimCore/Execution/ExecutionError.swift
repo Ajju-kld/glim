@@ -8,7 +8,7 @@ public enum ExecutionError: Error, Sendable, Equatable {
     case quitRefused(appName: String)
     case missingTarget
     /// The control changed after it was read, so Glim refused to act on it.
-    case elementChanged(label: String)
+    case elementChanged(label: String, change: String)
     /// Keyboard focus is not on the chosen field, so typing was stopped.
     case focusNotOnTarget(label: String)
     case actionFailed(reason: String)
@@ -26,7 +26,8 @@ public enum ExecutionError: Error, Sendable, Equatable {
         case .activationFailed(let appName): "Could not switch to \(appName)."
         case .quitRefused(let appName): "\(appName) did not quit."
         case .missingTarget: "No control was chosen for this step."
-        case .elementChanged(let label): "“\(label)” changed before Glim could act, so it stopped."
+        case .elementChanged(let label, let change):
+            "“\(label)” changed before Glim could act (\(change)), so it stopped."
         case .focusNotOnTarget(let label): "Typing stopped: the cursor left “\(label)”."
         case .actionFailed(let reason): "The action failed: \(reason)"
         case .windowUnavailable(let appName): "\(appName) has no window to arrange."

@@ -69,29 +69,11 @@ struct SystemOneTargetReviewer: Sendable {
     private func ask(
         about request: TargetReviewRequest, shortlist: [UIElementSnapshot], bearerToken: String?
     ) async throws -> SystemOneWireFormat.Answer {
-        let criteria = Dictionary(
-            uniqueKeysWithValues: shortlist.map { element in
-                (
-                    String(element.number),
-                    "\(element.label) (\(ElementRoles.displayName(of: element.role)))"
-                )
-            })
+        let question = SystemOneTargetQuestion(request: request, shortlist: shortlist)
         let wireRequest = SystemOneWireFormat.Request(
-            state: [
-                "goal": .string(request.goal),
-                "step": .string(request.step.action.summaryWithoutTypedText),
-                "action": .string(request.step.action.kind.rawValue),
-                "app": .string(request.step.app?.displayName ?? ""),
-                "windowTitle": request.windowTitle.map { .string($0) } ?? .null,
-            ],
+            state: question.wireState,
             model: modelName,
-            questions: [
-                SystemOneWireFormat.targetQuestionIdentifier: SystemOneWireFormat.Question(
-                    type: SystemOneWireFormat.choiceQuestionType,
-                    instructions:
-                        "Which numbered control performs this step: \(request.step.action.summaryWithoutTypedText)?",
-                    criteria: criteria)
-            ])
+            questions: [SystemOneWireFormat.targetQuestionIdentifier: question.wireQuestion])
 
         var urlRequest = URLRequest(
             url: try endpoint.url(path: "/v1/systemone"),

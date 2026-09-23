@@ -76,6 +76,47 @@ struct AppResolverTests {
         #expect(resolved?.bundleURL == codeURL)
     }
 
+    /// WhatsApp's Mac app names itself with an invisible left-to-right mark (U+200E) before
+    /// "WhatsApp", so the plain name the planner writes never matched it.
+    static let leftToRightMark = "\u{200E}"
+
+    func invisibleMarkResolver() -> AppResolver {
+        let whatsAppURL = URL(filePath: "/Applications/\(Self.leftToRightMark)WhatsApp.app")
+        let catalog = FakeAppCatalog(
+            installed: [
+                InstalledApp(
+                    name: "\(Self.leftToRightMark)WhatsApp",
+                    fileName: "\(Self.leftToRightMark)WhatsApp",
+                    bundleIdentifier: "net.whatsapp.WhatsApp", url: whatsAppURL)
+            ],
+            running: [
+                RunningApp(
+                    name: "\(Self.leftToRightMark)WhatsApp",
+                    bundleIdentifier: "net.whatsapp.WhatsApp", processIdentifier: 77,
+                    isFrontmost: false, bundleURL: whatsAppURL)
+            ])
+        return AppResolver(
+            catalog: catalog,
+            verifier: FakeSignatureVerifier(trustedBundleIdentifiers: ["net.whatsapp.WhatsApp"]))
+    }
+
+    @Test func invisibleMarksInAnAppNameDontStopItMatching() {
+        let resolver = invisibleMarkResolver()
+
+        #expect(
+            resolver.resolveInstalled(appNamed: "WhatsApp")?.identity.bundleIdentifier
+                == "net.whatsapp.WhatsApp")
+        #expect(resolver.resolveRunning(appNamed: "whatsapp")?.processIdentifier == 77)
+        #expect(resolver.resolve(appNamed: "WhatsApp")?.identity.displayName == "WhatsApp")
+    }
+
+    @Test func planningListsShowAppNamesWithoutInvisibleMarks() {
+        let resolver = invisibleMarkResolver()
+
+        #expect(resolver.installedAppNames() == ["WhatsApp"])
+        #expect(resolver.runningAppNames() == ["WhatsApp"])
+    }
+
     @Test func unknownAppResolvesToNothing() {
         #expect(makeResolver().resolve(appNamed: "Photoshop") == nil)
     }

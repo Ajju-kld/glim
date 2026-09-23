@@ -14,6 +14,8 @@ public struct TaskRunnerDependencies: Sendable {
     /// Reads the current settings' policy; the runner re-reads it on every step.
     let safetyPolicyProvider: @Sendable () -> SafetyPolicy
     let isWatchdogAlive: @Sendable () -> Bool
+    /// Keeps each step Laya reviewed as a training example; nil when saving is off.
+    let layaExampleSaver: (@Sendable (LayaExample) async -> Void)?
 
     /// Collects the runner's dependencies.
     public init(
@@ -29,7 +31,8 @@ public struct TaskRunnerDependencies: Sendable {
         auditLog: AuditLog,
         takeoverMonitor: TakeoverMonitor?,
         safetyPolicyProvider: @escaping @Sendable () -> SafetyPolicy,
-        isWatchdogAlive: @escaping @Sendable () -> Bool
+        isWatchdogAlive: @escaping @Sendable () -> Bool,
+        layaExampleSaver: (@Sendable (LayaExample) async -> Void)? = nil
     ) {
         self.planner = planner
         self.screenReader = screenReader
@@ -44,5 +47,6 @@ public struct TaskRunnerDependencies: Sendable {
         self.takeoverMonitor = takeoverMonitor
         self.safetyPolicyProvider = safetyPolicyProvider
         self.isWatchdogAlive = isWatchdogAlive
+        self.layaExampleSaver = layaExampleSaver
     }
 }

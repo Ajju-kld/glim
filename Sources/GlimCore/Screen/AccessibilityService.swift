@@ -26,14 +26,13 @@ public actor AccessibilityService: ScreenReading {
         kAXPlaceholderValueAttribute, kAXHelpAttribute, kAXIdentifierAttribute, kAXValueAttribute,
         kAXEnabledAttribute, kAXSizeAttribute, kAXChildrenAttribute,
     ]
-    /// Electron apps expose their accessibility tree only after this attribute is set.
-    private static let electronAccessibilityAttribute = "AXManualAccessibility"
     private static let trustPromptOption = "AXTrustedCheckOptionPrompt"
 
     private var handles: [AXUIElement] = []
     private var currentTable: ElementTable?
     private var currentProcessIdentifier: pid_t?
-    private var electronAccessibilityEnabled: Set<pid_t> = []
+    /// Wakes Chromium apps before their windows are read; Glim releases it when it quits.
+    public nonisolated let wakeUp = AccessibilityWakeUp(switchboard: LiveAccessibilitySwitchboard())
 
     /// Creates the service and sets the one-second messaging timeout for every Accessibility
     /// call this process makes. Setting it on an app element covers only that element, so the
@@ -54,10 +53,26 @@ public actor AccessibilityService: ScreenReading {
         _ = AXIsProcessTrustedWithOptions(options)
     }
 
-    /// Walks the app's focused window into a numbered table, within the reading limits.
+    /// Walks the app's focused window into a numbered table, within the reading limits. A
+    /// Chromium app that was only just woken is read again until its controls appear.
     public func snapshotFrontWindow(
         of app: ResolvedApp
-    ) throws(ScreenReadingError) -> ScreenSnapshot {
+    ) async throws(ScreenReadingError) -> ScreenSnapshot {
+        guard Self.isTrusted else {
+            throw .accessibilityNotTrusted
+        }
+        guard let waitDeadline = wakeUp.wake(app, at: .now) else {
+            return try readFrontWindow(of: app)
+        }
+        return try await ControlsWait.poll(
+            until: waitDeadline, every: ScreenReadingLimits.chromiumTreePollInterval,
+            read: { () throws(ScreenReadingError) -> ScreenSnapshot in
+                try readFrontWindow(of: app)
+            },
+            isReady: { !$0.table.elements.isEmpty })
+    }
+
+    private func readFrontWindow(of app: ResolvedApp) throws(ScreenReadingError) -> ScreenSnapshot {
         guard Self.isTrusted else {
             throw .accessibilityNotTrusted
         }
@@ -116,12 +131,6 @@ public actor AccessibilityService: ScreenReading {
     func applicationElement(for processIdentifier: pid_t) -> AXUIElement {
         let appElement = AXUIElementCreateApplication(processIdentifier)
         AXUIElementSetMessagingTimeout(appElement, ScreenReadingLimits.messagingTimeoutSeconds)
-        if !electronAccessibilityEnabled.contains(processIdentifier) {
-            // Non-Electron apps ignore this attribute; the result is irrelevant either way.
-            _ = AXUIElementSetAttributeValue(
-                appElement, Self.electronAccessibilityAttribute as CFString, kCFBooleanTrue)
-            electronAccessibilityEnabled.insert(processIdentifier)
-        }
         return appElement
     }
 

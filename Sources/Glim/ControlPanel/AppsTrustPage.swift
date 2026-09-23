@@ -40,6 +40,7 @@ struct AppsTrustPage: View {
             )
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+            ReadCheckSection()
             filterBar(entries: entries)
             TextField("Search apps", text: $searchText)
                 .textFieldStyle(.roundedBorder)

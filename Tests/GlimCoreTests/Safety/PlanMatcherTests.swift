@@ -25,6 +25,11 @@ struct PlanMatcherTests {
         #expect(!matcher.elementMatchesPlan(targetDescription: "New Note", element: folderRow))
     }
 
+    @Test func plainLabelIsMatchedAgainstThePlan() {
+        #expect(matcher.textMatchesPlan(targetDescription: "New Note", text: "New Note"))
+        #expect(!matcher.textMatchesPlan(targetDescription: "New Note", text: "Notes, 126 notes"))
+    }
+
     @Test func labelWithinThePlanWordingMatches() {
         let field = UIElementSnapshot.fixture(role: "AXTextArea", label: "Note")
 

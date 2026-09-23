@@ -6,6 +6,7 @@ enum ControlPanelPage: String, CaseIterable, Identifiable {
     case aiModels
     case permissions
     case activityLog
+    case layaTraining
 
     var id: Self { self }
 
@@ -17,6 +18,7 @@ enum ControlPanelPage: String, CaseIterable, Identifiable {
         case .aiModels: "AI Models"
         case .permissions: "Permissions"
         case .activityLog: "Activity Log"
+        case .layaTraining: "Laya Training"
         }
     }
 
@@ -28,6 +30,7 @@ enum ControlPanelPage: String, CaseIterable, Identifiable {
         case .aiModels: "The planner on this Mac and its second opinions."
         case .permissions: "What macOS lets Glim use. Glim never changes these itself."
         case .activityLog: "Everything Glim heard, planned, checked and did."
+        case .layaTraining: "Review what Glim did, so Laya learns your Mac apps."
         }
     }
 
@@ -39,6 +42,7 @@ enum ControlPanelPage: String, CaseIterable, Identifiable {
         case .aiModels: "cpu"
         case .permissions: "lock.shield"
         case .activityLog: "list.bullet.rectangle"
+        case .layaTraining: "graduationcap"
         }
     }
 }

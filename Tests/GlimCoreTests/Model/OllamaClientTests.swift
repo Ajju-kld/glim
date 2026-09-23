@@ -196,19 +196,20 @@ struct OllamaThinkingModelTests {
         }
     }
 
-    @Test func generationLengthIsCapped() async throws {
+    @Test func generationLengthFollowsTheRequest() async throws {
         let fakeTransport = FakeHTTPTransport(replies: [
             .response(
                 statusCode: 200,
                 body: #"{"message":{"role":"assistant","content":"{}"},"done":true}"#)
         ])
         let client = OllamaClient(transport: fakeTransport, modelName: "qwen3-vl:8b")
+        let shortRequest = LanguageModelRequest(
+            systemPrompt: "s", userPrompt: "u", responseSchema: ["type": "object"],
+            maximumAnswerTokens: 64)
 
-        _ = try await client.respond(to: request)
+        _ = try await client.respond(to: shortRequest)
 
         let body = try jsonObject(of: try #require(fakeTransport.sentRequests.first))
-        #expect(
-            (body["options"] as? [String: Any])?["num_predict"] as? Int
-                == OllamaClient.maximumAnswerTokens)
+        #expect((body["options"] as? [String: Any])?["num_predict"] as? Int == 64)
     }
 }

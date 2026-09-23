@@ -26,7 +26,20 @@ public struct PlanMatcher: Sendable {
         }
         let elementTexts = [element.label, element.title, element.elementDescription]
             .compactMap { $0 }
-        let elementWords = elementTexts.reduce(into: Set<String>()) { words, text in
+        return textsMatchPlan(plannedWords: plannedWords, texts: elementTexts)
+    }
+
+    /// Whether a control labelled `text` plausibly is the one described by `targetDescription`.
+    public func textMatchesPlan(targetDescription: String, text: String) -> Bool {
+        let plannedWords = Self.meaningfulWords(in: targetDescription)
+        guard !plannedWords.isEmpty else {
+            return false
+        }
+        return textsMatchPlan(plannedWords: plannedWords, texts: [text])
+    }
+
+    private func textsMatchPlan(plannedWords: Set<String>, texts: [String]) -> Bool {
+        let elementWords = texts.reduce(into: Set<String>()) { words, text in
             words.formUnion(Self.meaningfulWords(in: text))
         }
         guard !elementWords.isEmpty else {

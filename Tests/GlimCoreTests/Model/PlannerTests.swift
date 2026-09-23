@@ -134,6 +134,27 @@ struct PlannerTests {
         #expect(prompt.hasSuffix("Request: open notes and write buy milk"))
     }
 
+    /// Speed and focus: a front window's whole control list made plans slow and tempted the
+    /// model to copy it into steps. Only controls sharing words with the request are listed.
+    @Test func planningPromptListsOnlyControlsRelevantToTheRequest() {
+        let manyLabels = (1...60).map { "Daily Mix \($0)" } + ["Next", "Pause"]
+        let spotifyContext = PlanningContext(
+            goal: "skip to the next song", frontAppName: "Spotify", windowTitle: "Now Playing",
+            elementLabels: manyLabels, installedAppNames: ["Spotify"],
+            runningAppNames: ["Spotify"])
+
+        let prompt = Planner.planningPrompt(for: spotifyContext)
+
+        #expect(prompt.contains("- Next"))
+        #expect(!prompt.contains("Daily Mix"))
+        #expect(prompt.components(separatedBy: "\n- ").count - 1 <= Planner.planningControlLimit)
+    }
+
+    @Test func plannerIsToldNotToClickWindowButtons() {
+        #expect(PlannerPrompts.planning.contains("close, minimize or zoom buttons"))
+        #expect(PlannerPrompts.planning.contains("quitApp"))
+    }
+
     @Test func planSchemaFollowsTheCurrentLimits() async throws {
         var tightLimits = SafetyLimits.safeDefaults
         tightLimits.maximumActionsPerTask = 5
@@ -203,12 +224,60 @@ struct PlannerTests {
         #expect(model.requests.count == 1)
     }
 
+    /// Speed: the same wording rule that accepts a model's pick picks the only match itself.
+    @Test func onlyControlMatchingThePlanIsPickedWithoutAskingTheModel() async throws {
+        let playButton = UIElementSnapshot.fixture(number: 4, label: "Play")
+        let pauseButton = UIElementSnapshot.fixture(number: 5, label: "Pause")
+        let model = FakeLanguageModel(answers: [])
+
+        let choice = try await Planner(languageModel: model).pickTarget(
+            for: .click(appName: "Spotify", target: "Play button"), goal: "play music",
+            among: [pauseButton, playButton])
+
+        #expect(choice == .element(playButton))
+        #expect(model.requests.isEmpty)
+    }
+
+    /// Speed: reading the prompt is most of a pick's time, so the model first sees only the
+    /// controls closest to the plan's wording, and every control after a rejected answer.
+    @Test func pickPromptOffersAShortlistThenEveryControlOnRetry() async throws {
+        let buttons = (1...40).map { number in
+            UIElementSnapshot.fixture(number: number, label: "Playlist \(number)")
+        }
+        let model = FakeLanguageModel(answers: [
+            .success(#"{"elementNumber":3,"blocked":false}"#),
+            .success(#"{"elementNumber":3,"blocked":false}"#),
+        ])
+        let planner = Planner(languageModel: model)
+
+        _ = try await planner.pickTarget(
+            for: .click(appName: "Spotify", target: "Compose"), goal: "compose", among: buttons)
+        _ = try await planner.pickTarget(
+            for: .click(appName: "Spotify", target: "Compose"), goal: "compose", among: buttons,
+            retryNote: "Pick again.")
+
+        let listedCounts = model.requests.map { request in
+            request.userPrompt.components(separatedBy: "(Button)").count - 1
+        }
+        #expect(listedCounts == [Planner.pickShortlistLimit, 40])
+    }
+
+    @Test func pickAnswerLengthIsCappedShort() async throws {
+        let model = FakeLanguageModel(answer: #"{"elementNumber":1,"blocked":false}"#)
+
+        _ = try await Planner(languageModel: model).pickTarget(
+            for: .click(appName: "Notes", target: "Compose"), goal: context.goal,
+            among: [newNoteButton])
+
+        #expect(model.requests.first?.maximumAnswerTokens == Planner.pickAnswerTokenLimit)
+    }
+
     @Test func numberMissingFromTheTableIsAModelError() async {
         let model = FakeLanguageModel(answer: #"{"elementNumber":7,"blocked":false}"#)
 
         await #expect(throws: PlannerError.elementNumberNotInTable(7)) {
             _ = try await Planner(languageModel: model).pickTarget(
-                for: .click(appName: "Notes", target: "the new note button"), goal: context.goal,
+                for: .click(appName: "Notes", target: "the compose button"), goal: context.goal,
                 among: [newNoteButton])
         }
     }
@@ -218,7 +287,7 @@ struct PlannerTests {
 
         await #expect(throws: PlannerError.elementNumberNotInTable(1)) {
             _ = try await Planner(languageModel: model).pickTarget(
-                for: .typeText(appName: "Notes", target: "body", text: "hi"), goal: context.goal,
+                for: .typeText(appName: "Notes", target: "comment", text: "hi"), goal: context.goal,
                 among: [newNoteButton, noteBody, noteTitle])
         }
     }
@@ -238,7 +307,7 @@ struct PlannerTests {
         let model = FakeLanguageModel(answer: #"{"elementNumber":2,"blocked":false}"#)
 
         _ = try await Planner(languageModel: model).pickTarget(
-            for: .typeText(appName: "Notes", target: "body", text: "hi"), goal: context.goal,
+            for: .typeText(appName: "Notes", target: "comment", text: "hi"), goal: context.goal,
             among: [newNoteButton, noteBody, noteTitle])
 
         let prompt = try #require(model.requests.first?.userPrompt)
@@ -250,7 +319,7 @@ struct PlannerTests {
         let model = FakeLanguageModel(answer: #"{"elementNumber":1,"blocked":false}"#)
 
         _ = try await Planner(languageModel: model).pickTarget(
-            for: .click(appName: "Notes", target: "the new note button"), goal: context.goal,
+            for: .click(appName: "Notes", target: "the compose button"), goal: context.goal,
             among: [newNoteButton], retryNote: "Element 7 is not in the list.")
 
         let prompt = try #require(model.requests.first?.userPrompt)

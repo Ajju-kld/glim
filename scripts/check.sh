@@ -9,6 +9,14 @@ swift build
 echo "==> swift test"
 swift test
 
+readonly LAYA_PYTHON="services/laya/.venv/bin/python"
+if [[ -x "$LAYA_PYTHON" ]]; then
+  echo "==> Laya training tests"
+  (cd services/laya && ../../"$LAYA_PYTHON" -m unittest discover -s training/tests -t .)
+else
+  echo "==> Laya training tests skipped: run scripts/start-laya.sh once to install Laya"
+fi
+
 echo "==> swift format lint (strict)"
 swift format lint --strict --recursive Sources Tests
 

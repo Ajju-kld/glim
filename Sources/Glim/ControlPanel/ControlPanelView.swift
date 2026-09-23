@@ -49,6 +49,7 @@ struct ControlPanelView: View {
         case .aiModels: AIModelsPage()
         case .permissions: PermissionsPage()
         case .activityLog: ActivityLogPage()
+        case .layaTraining: LayaTrainingPage()
         }
     }
 }

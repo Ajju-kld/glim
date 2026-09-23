@@ -26,6 +26,7 @@ extension TaskRunner {
         let app = try resolveForExecution(step)
         try ensureRunsInApprovedApp(app, step: step, policy: policy)
         await dependencies.narrator.say(step.action.summary)
+        var timings = StepTimings()
 
         // The window read right after the previous step is fresh; reading it again would only
         // add time. The chosen control is still re-checked on screen right before acting.
@@ -38,14 +39,17 @@ extension TaskRunner {
             if let reusableScreen {
                 snapshotBefore = reusableScreen
             } else {
-                snapshotBefore = try await snapshot(of: app)
+                snapshotBefore = try await timings.measure("read window") {
+                    try await snapshot(of: app)
+                }
             }
         }
         var target: UIElementSnapshot?
         var checkerConcerns: [ConfirmationReason] = []
         if step.action.kind.needsTargetElement, let snapshotBefore {
             (target, checkerConcerns) = try await chooseTarget(
-                for: step, goal: plan.goal, snapshot: snapshotBefore, limiter: &limiter)
+                for: step, goal: plan.goal, snapshot: snapshotBefore, limiter: &limiter,
+                timings: &timings)
         }
         try await pause(for: limiter.waitBeforeNextAction(at: .now))
 
@@ -74,6 +78,7 @@ extension TaskRunner {
         }
 
         try ensureArmed()
+        let actionStart = ContinuousClock.now
         do {
             try await dependencies.executor.perform(
                 ExecutableAction(step: step.action, app: app, targetElement: executionTarget))
@@ -84,13 +89,16 @@ extension TaskRunner {
             throw RunnerStop.failed(error.explanation)
         }
         try await audit(.actionPerformed, step.action.summary)
+        timings.record("act", ContinuousClock.now - actionStart)
 
         if case .openApp(let appName) = step.action {
             try await waitForAppToLaunch(named: appName)
         }
         try await pause(for: timing.settleAfterAction)
-        let (changedScreen, screenAfter) = try await screenChanged(
-            after: step, in: app, before: snapshotBefore)
+        let (changedScreen, screenAfter) = try await timings.measure("confirm change") {
+            try await screenChanged(after: step, in: app, before: snapshotBefore)
+        }
+        try await audit(.stepTiming, timings.summary(title: step.action.summary))
         latestScreen = screenAfter
         limiter.recordAction(at: .now, changedScreen: changedScreen)
         limiter.beginNextStep()
@@ -218,8 +226,10 @@ extension TaskRunner {
     // MARK: - Target choice
 
     private func chooseTarget(
-        for step: ScreenedStep, goal: String, snapshot: ScreenSnapshot, limiter: inout ActionLimiter
+        for step: ScreenedStep, goal: String, snapshot: ScreenSnapshot,
+        limiter: inout ActionLimiter, timings: inout StepTimings
     ) async throws -> (UIElementSnapshot, [ConfirmationReason]) {
+        try await stopIfNothingCanBePicked(for: step, in: snapshot)
         var retryNote: String?
         while true {
             if let violation = limiter.violation(at: .now),
@@ -227,9 +237,12 @@ extension TaskRunner {
                     != .actionsTooClose(
                         minimumSeconds: currentPolicy.limits.minimumSecondsBetweenActions)
             {
+                try await auditControlsOffered(in: snapshot, for: step)
                 throw RunnerStop.blocked(.limitReached(violation), stepNumber: step.number)
             }
             let choice: TargetChoice
+            let pickStart = ContinuousClock.now
+            defer { timings.record("pick", ContinuousClock.now - pickStart) }
             do {
                 choice = try await dependencies.planner.pickTarget(
                     for: step.action, goal: goal, among: snapshot.table.elements,
@@ -245,6 +258,7 @@ extension TaskRunner {
             switch choice {
             case .blocked(let reason):
                 try await audit(.modelError, "The AI found no matching control: \(reason)")
+                try await auditControlsOffered(in: snapshot, for: step)
                 let description = step.action.targetDescription ?? step.action.summary
                 throw RunnerStop.blocked(
                     .unknownTarget(description: description), stepNumber: step.number)
@@ -255,11 +269,88 @@ extension TaskRunner {
                     try await audit(.modelError, mismatch)
                     continue
                 }
-                let concerns = try await checkerConcerns(
-                    for: step, goal: goal, snapshot: snapshot, chosen: element)
+                let concerns = try await timings.measure("check") {
+                    try await checkerConcerns(
+                        for: step, goal: goal, snapshot: snapshot, chosen: element)
+                }
                 return (element, concerns)
             }
         }
+    }
+
+    /// Stops before asking the model when it could only guess: the window gave no controls, or
+    /// the plan's control is there but greyed out and nothing enabled matches it.
+    private func stopIfNothingCanBePicked(for step: ScreenedStep, in snapshot: ScreenSnapshot)
+        async throws
+    {
+        let appName = snapshot.app.identity.displayName
+        if snapshot.table.elements.isEmpty {
+            try await auditControlsOffered(in: snapshot, for: step)
+            throw RunnerStop.blocked(.noControlsRead(appName: appName), stepNumber: step.number)
+        }
+        guard let plannedTarget = step.action.targetDescription else {
+            return
+        }
+        let matcher = PlanMatcher()
+        let candidates = ElementRoles.candidates(
+            in: snapshot.table.elements, for: step.action.kind)
+        let enabledMatchExists = candidates.contains { element in
+            matcher.elementMatchesPlan(targetDescription: plannedTarget, element: element)
+        }
+        if step.action.kind == .click, !enabledMatchExists,
+            Self.describesWindowButton(plannedTarget)
+        {
+            throw RunnerStop.blocked(
+                .windowButtonTarget(description: plannedTarget), stepNumber: step.number)
+        }
+        let disabledMatchExists = snapshot.table.disabledControlLabels.contains { label in
+            matcher.textMatchesPlan(targetDescription: plannedTarget, text: label)
+        }
+        if !enabledMatchExists, disabledMatchExists {
+            try await auditControlsOffered(in: snapshot, for: step)
+            throw RunnerStop.blocked(
+                .targetDisabled(description: plannedTarget, appName: appName),
+                stepNumber: step.number)
+        }
+    }
+
+    /// Business rule: words naming a window's own title-bar buttons, which Glim never offers.
+    private static let windowButtonWords: Set<String> = [
+        "close", "minimize", "minimise", "zoom", "maximize", "maximise", "full", "screen",
+        "fullscreen", "window",
+    ]
+
+    /// Whether `target` names only a title-bar button, such as "Close button" or "zoom".
+    private static func describesWindowButton(_ target: String) -> Bool {
+        let words = PlanMatcher.meaningfulWords(in: target)
+        return !words.subtracting(["window"]).isEmpty && words.isSubset(of: windowButtonWords)
+    }
+
+    /// Records every control read from the window when no pick could be made, so the Activity
+    /// Log shows whether the planned control was missing from what Glim read. List rows carry
+    /// note and message titles, so secret-looking words are hidden before anything is logged.
+    private func auditControlsOffered(in snapshot: ScreenSnapshot, for step: ScreenedStep)
+        async throws
+    {
+        let controlDescriptions = snapshot.table.elements.map { element in
+            "[\(element.number)] \(SecretMasker.masked(element.label)) (\(ElementRoles.displayName(of: element.role)))"
+        }
+        let windowName =
+            snapshot.windowTitle.map { "“\(SecretMasker.masked($0))”" } ?? "the untitled window"
+        let truncationNote =
+            snapshot.table.wasTruncated
+            ? " The window had more controls than the \(ScreenReadingLimits.maximumListedElements) listed."
+            : ""
+        let controlList =
+            controlDescriptions.isEmpty ? "none" : controlDescriptions.joined(separator: ", ")
+        let leftOutLabels = snapshot.table.leftOutControlLabels.map(SecretMasker.masked)
+        let leftOutNote =
+            leftOutLabels.isEmpty
+            ? "" : " Left out by the limit: \(leftOutLabels.joined(separator: ", "))."
+        try await audit(
+            .controlsOffered,
+            "Controls read from \(windowName) for “\(step.action.summary)”: \(controlList).\(truncationNote)\(leftOutNote)"
+        )
     }
 
     /// When Glim asks only before danger, a pick that doesn't match the plan's wording is never
@@ -278,20 +369,25 @@ extension TaskRunner {
             return nil
         }
         return
-            "“\(element.label)” doesn't match the plan's “\(plannedTarget)”. Pick the control that matches it, or report it blocked."
+            "“\(SecretMasker.masked(element.label))” doesn't match the plan's “\(plannedTarget)”. Pick the control that matches it, or report it blocked."
     }
 
     private func checkerConcerns(
         for step: ScreenedStep, goal: String, snapshot: ScreenSnapshot, chosen: UIElementSnapshot
     ) async throws -> [ConfirmationReason] {
-        let result = await dependencies.checkerConsensus.review(
-            TargetReviewRequest(
-                goal: goal, step: step, windowTitle: snapshot.windowTitle,
-                candidates: ElementRoles.candidates(
-                    in: snapshot.table.elements, for: step.action.kind),
-                chosenElement: chosen))
+        let reviewRequest = TargetReviewRequest(
+            goal: goal, step: step, windowTitle: snapshot.windowTitle,
+            candidates: ElementRoles.candidates(in: snapshot.table.elements, for: step.action.kind),
+            chosenElement: chosen)
+        let result = await dependencies.checkerConsensus.review(reviewRequest)
         for outcome in result.outcomes {
             try await audit(.checkerVerdict, "\(outcome.checkerName): \(outcome.verdict)")
+            if let saveExample = dependencies.layaExampleSaver,
+                let example = LayaExample.make(
+                    from: reviewRequest, outcome: outcome, id: UUID(), createdAt: Date())
+            {
+                await saveExample(example)
+            }
         }
         return result.concerns
     }

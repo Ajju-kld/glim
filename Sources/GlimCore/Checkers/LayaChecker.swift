@@ -1,8 +1,10 @@
 /// Second opinion from the local Laya decision service at `127.0.0.1:8791` (v1). Laya v2 will
 /// run in-process with CoreML behind this same ``TargetChecker`` interface.
 public struct LayaChecker: TargetChecker {
+    /// The name Laya's verdicts carry, so its answers can be kept as training examples.
+    public static let checkerName = "Laya"
     /// Shown in confirmation panels.
-    public let name = "Laya"
+    public let name = checkerName
     private let reviewer: SystemOneTargetReviewer
 
     /// Creates a checker that reaches the service through `transport`.

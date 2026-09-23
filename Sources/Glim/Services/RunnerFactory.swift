@@ -1,8 +1,29 @@
 import GlimCore
+import os
 
 /// Builds a task runner from the current settings, wiring the live Mac services together.
 @MainActor
 enum RunnerFactory {
+    nonisolated private static let logger = Logger(
+        subsystem: "dev.straxs.Glim", category: "RunnerFactory")
+
+    /// Saves each step Laya reviewed when the owner turned saving on; nil otherwise.
+    private static func layaExampleSaver(isSaving: Bool, store: LayaExampleStore)
+        -> (@Sendable (LayaExample) async -> Void)?
+    {
+        guard isSaving else {
+            return nil
+        }
+        return { example in
+            do throws(LayaExampleStoreError) {
+                try await store.append(example)
+            } catch {
+                logger.error(
+                    "Could not save a Laya example: \(error.explanation, privacy: .public)")
+            }
+        }
+    }
+
     static func makeRunner(
         settings: GlimSettings,
         settingsBox: SettingsBox,
@@ -43,7 +64,9 @@ enum RunnerFactory {
                 let policy = settingsBox.settings.safetyPolicy
                 return isActionModeAllowed ? policy : readOnlyEverywhere(policy)
             },
-            isWatchdogAlive: { watchdogHealth.isAlive })
+            isWatchdogAlive: { watchdogHealth.isAlive },
+            layaExampleSaver: layaExampleSaver(
+                isSaving: settings.savesLayaExamples, store: services.layaExamples))
         return TaskRunner(dependencies: dependencies)
     }
 

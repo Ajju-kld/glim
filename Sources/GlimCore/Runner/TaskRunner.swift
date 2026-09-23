@@ -69,7 +69,10 @@ public struct TaskRunner: Sendable {
                 installedAppNames: dependencies.appResolver.installedAppNames(),
                 runningAppNames: dependencies.appResolver.runningAppNames(),
                 limits: currentPolicy.limits)
-            switch try await plannerResult(for: context) {
+            let planningTimings = StepTimings()
+            let result = try await plannerResult(for: context)
+            try await audit(.stepTiming, planningTimings.summary(title: "Planning"))
+            switch result {
             case .question:
                 return try await answerQuestion(goal, frontApp: frontApp, snapshot: frontSnapshot)
             case .task(let plan):

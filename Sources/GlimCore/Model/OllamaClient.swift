@@ -6,9 +6,6 @@ public struct OllamaClient: LanguageModel {
     public static let requestTimeoutSeconds: TimeInterval = 60
     /// Tunable: temperature 0 makes plans repeatable for the same request and screen.
     public static let planningTemperature = 0.0
-    /// Tunable: the longest answer the model may write — a 20-step plan fits well inside it,
-    /// and a runaway generation stops instead of hanging the task.
-    public static let maximumAnswerTokens = 1_024
     /// Tunable: how long Ollama keeps the model in memory after a request. Loading it again
     /// takes 10+ seconds on a busy Mac, which is most of a slow first answer.
     public static let keepModelLoadedFor = "30m"
@@ -66,7 +63,7 @@ public struct OllamaClient: LanguageModel {
             ],
             "options": [
                 "temperature": .number(Self.planningTemperature),
-                "num_predict": .integer(Self.maximumAnswerTokens),
+                "num_predict": .integer(request.maximumAnswerTokens),
             ],
         ]
         let data = try await send(path: "/api/chat", method: "POST", body: try encoded(chatRequest))

@@ -41,7 +41,7 @@ public struct AppResolver: Sendable {
         }
         let identity = AppIdentity(
             bundleIdentifier: installedApp.bundleIdentifier,
-            displayName: installedApp.name,
+            displayName: Self.withoutInvisibleMarks(installedApp.name),
             hasValidSignature: verifier.hasTrustedSignature(
                 bundleIdentifier: installedApp.bundleIdentifier, bundleURL: installedApp.url,
                 processIdentifier: nil))
@@ -53,20 +53,27 @@ public struct AppResolver: Sendable {
         catalog.runningApps().first(where: \.isFrontmost).map(resolved)
     }
 
+    /// Every running app with a Dock icon, sorted by name.
+    public func runningApps() -> [ResolvedApp] {
+        catalog.runningApps()
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            .map(resolved)
+    }
+
     /// Installed app names for the planner, sorted and without duplicates.
     public func installedAppNames() -> [String] {
-        Array(Set(catalog.installedApps().map(\.name))).sorted()
+        Array(Set(catalog.installedApps().map { Self.withoutInvisibleMarks($0.name) })).sorted()
     }
 
     /// Running app names for the planner, sorted and without duplicates.
     public func runningAppNames() -> [String] {
-        Array(Set(catalog.runningApps().map(\.name))).sorted()
+        Array(Set(catalog.runningApps().map { Self.withoutInvisibleMarks($0.name) })).sorted()
     }
 
     private func resolved(_ runningApp: RunningApp) -> ResolvedApp {
         let identity = AppIdentity(
             bundleIdentifier: runningApp.bundleIdentifier,
-            displayName: runningApp.name,
+            displayName: Self.withoutInvisibleMarks(runningApp.name),
             hasValidSignature: verifier.hasTrustedSignature(
                 bundleIdentifier: runningApp.bundleIdentifier, bundleURL: runningApp.bundleURL,
                 processIdentifier: runningApp.processIdentifier))
@@ -75,8 +82,17 @@ public struct AppResolver: Sendable {
             processIdentifier: runningApp.processIdentifier)
     }
 
+    /// `name` without invisible formatting characters, such as the left-to-right mark WhatsApp
+    /// puts before its name. They carry no meaning in a name and stop plain names matching.
+    static func withoutInvisibleMarks(_ name: String) -> String {
+        String(
+            String.UnicodeScalarView(
+                name.unicodeScalars.filter { $0.properties.generalCategory != .format }))
+    }
+
     static func normalized(_ name: String) -> String {
-        var trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        var trimmedName = withoutInvisibleMarks(name)
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if trimmedName.hasSuffix(bundleExtension) {
             trimmedName.removeLast(bundleExtension.count)
         }

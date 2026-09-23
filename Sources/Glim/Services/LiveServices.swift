@@ -5,6 +5,7 @@ import GlimCore
 struct LiveServices {
     let killSwitch = KillSwitch()
     let auditLog = AuditLog(directory: GlimStorage.auditDirectory)
+    let layaExamples = LayaExampleStore(directory: GlimStorage.layaExamplesDirectory)
     let accessibility = AccessibilityService()
     let appResolver = AppResolver(catalog: WorkspaceAppCatalog(), verifier: CodeSignatureVerifier())
     let transcriber = SpeechAnalyzerTranscriber()

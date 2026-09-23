@@ -47,6 +47,56 @@ struct ElementTableBuilderTests {
         #expect(builder.build(from: window).elements.map(\.label) == ["Play"])
     }
 
+    /// A greyed-out control is never offered, but its name is kept so Glim can say why the
+    /// plan's control can't be clicked (Notes' New Note in the All iCloud view).
+    @Test func disabledControlsAreNamedButNotOffered() {
+        let window = AccessibilityNode.fixture(
+            role: "AXWindow", title: "Notes",
+            children: [
+                .fixture(handleIndex: 1, role: "AXButton", title: "New Note", isEnabled: false),
+                .fixture(handleIndex: 2, role: "AXButton", title: "Format"),
+                .fixture(
+                    handleIndex: 3, role: "AXButton", subrole: "AXZoomButton", title: "zoom",
+                    isEnabled: false),
+            ])
+
+        let table = builder.build(from: window)
+
+        #expect(table.elements.map(\.label) == ["Format"])
+        #expect(table.disabledControlLabels == ["New Note"])
+    }
+
+    /// Controls cut by the table limit are named, so the log shows whether the planned one
+    /// was read at all.
+    @Test func controlsCutByTheLimitAreNamed() {
+        let buttons = (0...ScreenReadingLimits.maximumListedElements).map { index in
+            AccessibilityNode.fixture(
+                handleIndex: 10 + index, role: "AXButton", title: "Button \(index + 1)")
+        }
+        let window = AccessibilityNode.fixture(role: "AXWindow", children: buttons)
+
+        let table = builder.build(from: window)
+
+        #expect(
+            table.leftOutControlLabels == [
+                "Button \(ScreenReadingLimits.maximumListedElements + 1)"
+            ])
+    }
+
+    /// Icon buttons with no name can't be offered; the read check counts them.
+    @Test func unnamedButtonsAreCounted() {
+        let window = AccessibilityNode.fixture(
+            role: "AXWindow", title: "Notes",
+            children: [
+                .fixture(handleIndex: 1, role: "AXButton"),
+                .fixture(handleIndex: 2, role: "AXButton"),
+                .fixture(handleIndex: 3, role: "AXButton", title: "Format"),
+                .fixture(handleIndex: 4, role: "AXButton", width: 0),
+            ])
+
+        #expect(builder.build(from: window).unlabelledControlCount == 2)
+    }
+
     @Test func unnamedTextAreaIsListedAsUntitled() {
         let window = AccessibilityNode.fixture(
             role: "AXWindow", title: "Notes",

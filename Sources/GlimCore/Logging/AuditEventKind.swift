@@ -6,6 +6,9 @@ public enum AuditEventKind: String, Sendable, Codable {
     case planApproved
     case planCancelled
     case modelError
+    case controlsOffered
+    case readCheck
+    case stepTiming
     case checkerVerdict
     case gateDecision
     case confirmationAnswered

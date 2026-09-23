@@ -64,10 +64,15 @@ extension AccessibilityService {
             throw .actionFailed(reason: "Could not describe the window frame.")
         }
         try Self.ensureArmed(killSwitch)
-        let positionStatus = AXUIElementSetAttributeValue(
-            window, kAXPositionAttribute as CFString, positionValue)
-        let sizeStatus = AXUIElementSetAttributeValue(
-            window, kAXSizeAttribute as CFString, sizeValue)
+        let (positionStatus, sizeStatus) = wakeUp.whileEnhancedInterfacePaused(
+            processIdentifier: processIdentifier
+        ) {
+            (
+                AXUIElementSetAttributeValue(
+                    window, kAXPositionAttribute as CFString, positionValue),
+                AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
+            )
+        }
         guard positionStatus == .success, sizeStatus == .success else {
             throw .actionFailed(reason: "\(appName) did not accept the new window frame.")
         }
@@ -120,10 +125,11 @@ extension AccessibilityService {
     private func verifiedElement(
         number: Int, expected: UIElementSnapshot, processIdentifier: pid_t
     ) throws(ExecutionError) -> AXUIElement {
-        guard let element = liveElement(number: number, processIdentifier: processIdentifier),
-            ElementIdentityCheck.liveNode(shallowNode(for: element), isSameControlAs: expected)
-        else {
-            throw .elementChanged(label: expected.label)
+        guard let element = liveElement(number: number, processIdentifier: processIdentifier) else {
+            throw .elementChanged(label: expected.label, change: "the control is gone")
+        }
+        if let change = ElementIdentityCheck.difference(shallowNode(for: element), from: expected) {
+            throw .elementChanged(label: expected.label, change: change)
         }
         return element
     }

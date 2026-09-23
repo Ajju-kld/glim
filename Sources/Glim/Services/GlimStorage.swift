@@ -17,4 +17,9 @@ enum GlimStorage {
     static var auditDirectory: URL {
         directory.appending(path: "Audit", directoryHint: .isDirectory)
     }
+
+    /// Laya training examples; `scripts/train-laya.sh` reads them from here.
+    static var layaExamplesDirectory: URL {
+        directory.appending(path: "LayaExamples", directoryHint: .isDirectory)
+    }
 }

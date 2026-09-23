@@ -72,3 +72,20 @@ Done before the first install, as the notes above require:
 Replace the service with in-process CoreML behind the same `TargetChecker` interface: adapt
 FluidUse's Apache-2.0 Swift tokenizer and scoring, and convert v10s once with Python on the
 development side.
+
+## Training Laya on Mac apps (Glim)
+
+Design: `docs/specs/2026-09-23-laya-tuning-design.md`. Everything runs on this Mac with MLX.
+
+1. In Glim → **Laya Training**, turn on **Save Laya examples** and use Glim with Laya running.
+2. Review examples on the same page: planner's pick right, pick the right option, or skip.
+3. With 200+ reviewed examples from 5+ apps, run `scripts/train-laya.sh`. It scores the active
+   model on a held-back 20 %, trains the decision head (encoder frozen), saves the new
+   checkpoint under `services/laya/checkpoints/`, and promotes it only if it catches more
+   wrong picks without more false alarms. Restart Laya afterwards.
+4. `scripts/train-laya.sh --score-only` just scores; `--rollback` returns to the published
+   v10s model.
+
+`scripts/start-laya.sh` now runs `glim_serve.py`, which serves the promoted checkpoint (from
+`checkpoints/active.json`) or the published model. The cloned `src/` is not modified. Tests:
+`training/tests/` (standard-library `unittest`), run by `scripts/check.sh`.

@@ -45,6 +45,26 @@ struct ElementIdentityCheckTests {
                 liveNode(identifier: "delete-button"), isSameControlAs: snapshot))
     }
 
+    /// The stop message says what changed, so a failure in a live app can be diagnosed.
+    @Test func differenceNamesWhatChanged() {
+        #expect(ElementIdentityCheck.difference(liveNode(), from: snapshot) == nil)
+        #expect(
+            ElementIdentityCheck.difference(liveNode(helpText: "Reply all"), from: snapshot)
+                == "help text “Reply” became “Reply all”")
+        #expect(
+            ElementIdentityCheck.difference(liveNode(isEnabled: false), from: snapshot)
+                == "it is greyed out now")
+    }
+
+    /// A control whose attributes can no longer be read has left the screen.
+    @Test func unreadableControlIsReportedGone() {
+        let goneNode = liveNode(
+            elementDescription: nil, helpText: nil, identifier: nil, childText: "", role: "")
+
+        #expect(
+            ElementIdentityCheck.difference(goneNode, from: snapshot) == "the control is gone")
+    }
+
     @Test func labelFromChildTextIsRechecked() {
         let rowSnapshot = UIElementSnapshot(number: 3, role: "AXRow", label: "Lunch on Friday")
         let changedRow = AccessibilityNode(

@@ -32,6 +32,8 @@ public struct ElementTableBuilder: Sendable {
     /// the table stays in reading order either way.
     public func build(from window: AccessibilityNode) -> ElementTable {
         var candidates: [Candidate] = []
+        var disabledControlLabels: [String] = []
+        var unlabelledControlCount = 0
         var readableText = ReadableTextCollector()
         var nodesToVisit = [window]
 
@@ -43,7 +45,14 @@ public struct ElementTableBuilder: Sendable {
             if Self.readableTextRoles.contains(node.role), let text = Self.nonBlank(node.value) {
                 readableText.append(text)
             }
-            guard let label = Self.label(for: node) else {
+            guard let label = Self.labelIgnoringEnabledState(for: node) else {
+                if Self.isNamelessControl(node) {
+                    unlabelledControlCount += 1
+                }
+                continue
+            }
+            guard node.isEnabled else {
+                disabledControlLabels.append(label)
                 continue
             }
             candidates.append(
@@ -54,6 +63,11 @@ public struct ElementTableBuilder: Sendable {
         let wasTruncated = candidates.count > limit
         let keptCandidates =
             wasTruncated ? Self.prioritized(candidates, limit: limit) : candidates
+        let keptPositions = Set(keptCandidates.map(\.readingPosition))
+        let leftOutControlLabels =
+            candidates
+            .filter { !keptPositions.contains($0.readingPosition) }
+            .map(\.label)
         var elements: [UIElementSnapshot] = []
         var handleIndexByElementNumber: [Int: Int] = [:]
         for candidate in keptCandidates {
@@ -77,7 +91,10 @@ public struct ElementTableBuilder: Sendable {
             elements: elements,
             handleIndexByElementNumber: handleIndexByElementNumber,
             readableText: readableText.text,
-            wasTruncated: wasTruncated)
+            wasTruncated: wasTruncated,
+            disabledControlLabels: disabledControlLabels,
+            unlabelledControlCount: unlabelledControlCount,
+            leftOutControlLabels: leftOutControlLabels)
     }
 
     /// Up to `limit` candidates: buttons and fields first, then rows and cells, in reading order.
@@ -107,9 +124,14 @@ public struct ElementTableBuilder: Sendable {
 
     /// The label for an actionable control, or nil when the node isn't one Glim may list.
     static func label(for node: AccessibilityNode) -> String? {
+        node.isEnabled ? labelIgnoringEnabledState(for: node) : nil
+    }
+
+    /// The label a control would be listed under if it were enabled.
+    private static func labelIgnoringEnabledState(for node: AccessibilityNode) -> String? {
         let isClickable = ElementRoles.clickableRoles.contains(node.role)
         let isTextEntry = ElementRoles.textEntryRoles.contains(node.role)
-        guard isClickable || isTextEntry, node.isEnabled, node.width > 0, node.height > 0,
+        guard isClickable || isTextEntry, node.width > 0, node.height > 0,
             !windowButtonSubroles.contains(node.subrole ?? "")
         else {
             return nil
@@ -124,6 +146,12 @@ public struct ElementTableBuilder: Sendable {
         return isClickable
             ? firstStaticText(in: node.children, remainingDepth: labelSearchDepth)
             : untitledLabel(for: node.role)
+    }
+
+    /// A visible, enabled control Glim would list if it had a name.
+    private static func isNamelessControl(_ node: AccessibilityNode) -> Bool {
+        ElementRoles.clickableRoles.contains(node.role) && node.isEnabled && node.width > 0
+            && node.height > 0 && !windowButtonSubroles.contains(node.subrole ?? "")
     }
 
     /// Buttons drawn by some frameworks carry their text in a child static text.

@@ -54,7 +54,8 @@ struct TaskRunnerTests {
             isWatchdogAlive: Bool = true,
             policy: ChangingPolicy = ChangingPolicy(testPolicy),
             takeoverMonitor: TakeoverMonitor? = nil,
-            timing: RunnerTiming = quickTiming
+            timing: RunnerTiming = quickTiming,
+            layaExampleSaver: (@Sendable (LayaExample) async -> Void)? = nil
         ) -> TaskRunner {
             let runningApps = [
                 RunningApp(
@@ -95,7 +96,8 @@ struct TaskRunnerTests {
                 auditLog: auditLog,
                 takeoverMonitor: takeoverMonitor,
                 safetyPolicyProvider: { policy.current },
-                isWatchdogAlive: { isWatchdogAlive })
+                isWatchdogAlive: { isWatchdogAlive },
+                layaExampleSaver: layaExampleSaver)
             return TaskRunner(dependencies: dependencies, timing: timing)
         }
 
@@ -126,7 +128,10 @@ struct TaskRunnerTests {
 
     static let clickNewItemPlan =
         #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"New Item"}]}"#
-    /// A target that is no control's exact label, so the model has to pick one.
+    /// A target no control's wording fits, so the model has to pick one.
+    static let clickFirstButtonPlan =
+        #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"the first button"}]}"#
+    /// A target that is no control's exact label but whose wording fits only New Item.
     static let clickNewItemLooselyPlan =
         #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"the new item button"}]}"#
 
@@ -248,7 +253,7 @@ struct TaskRunnerTests {
             let harness = makeHarness(
                 in: directory,
                 modelAnswers: [
-                    Self.clickNewItemLooselyPlan, #"{"elementNumber":2,"blocked":false}"#,
+                    Self.clickFirstButtonPlan, #"{"elementNumber":2,"blocked":false}"#,
                 ])
 
             let outcome = await harness.run("click new item")
@@ -355,6 +360,214 @@ struct TaskRunnerTests {
             #expect(harness.decisions.confirmationsShown.isEmpty)
             #expect(
                 harness.model.requests.last?.userPrompt.contains("doesn't match the plan") == true)
+        }
+    }
+
+    /// Notes greys out New Note in its All iCloud view. Glim says so instead of making the
+    /// model guess among the other controls.
+    @Test func greyedOutPlannedControlStopsWithoutAskingTheModel() async throws {
+        try await withTemporaryDirectory { directory in
+            let table = ElementTable(
+                elements: [Self.deleteButton, Self.archiveButton],
+                handleIndexByElementNumber: [2: 2, 5: 5],
+                readableText: String(repeating: "text ", count: 60), wasTruncated: false,
+                disabledControlLabels: ["New Item"])
+            let harness = makeHarness(
+                in: directory, modelAnswers: [Self.clickNewItemLooselyPlan], table: table)
+
+            let outcome = await harness.run(
+                "click new item",
+                runner: harness.makeRunner(policy: ChangingPolicy(Self.dangerOnlyPolicy)))
+
+            #expect(
+                outcome
+                    == .blocked(
+                        .targetDisabled(description: "the new item button", appName: "Testbed"),
+                        stepNumber: 1))
+            #expect(harness.model.requests.count == 1)
+            #expect(harness.executor.performed.isEmpty)
+        }
+    }
+
+    /// Glim never offers a window's close, minimize or zoom buttons, so a plan that clicks one
+    /// stops at once with what to ask for instead, rather than making the model guess 3 times.
+    @Test func clickOnAWindowButtonStopsWithGuidance() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = makeHarness(
+                in: directory,
+                modelAnswers: [
+                    #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"Close button"}]}"#
+                ])
+
+            let outcome = await harness.run("close testbed")
+
+            #expect(
+                outcome
+                    == .blocked(.windowButtonTarget(description: "Close button"), stepNumber: 1))
+            #expect(harness.model.requests.count == 1)
+        }
+    }
+
+    /// Each step logs where its time went, so a slow step shows its bottleneck.
+    @Test func eachStepLogsItsTiming() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = makeHarness(in: directory, modelAnswers: [Self.clickNewItemPlan])
+
+            _ = await harness.run("click new item")
+
+            let timing =
+                try await harness.auditLog.readAllEvents()
+                .filter { $0.kind == .stepTiming }.map(\.summary)
+                .first { $0.hasPrefix("Click “New Item” in Testbed took ") } ?? ""
+            #expect(timing.contains("read window"))
+            #expect(timing.contains("pick"))
+            #expect(timing.contains("act"))
+        }
+    }
+
+    @Test func planningLogsItsTiming() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = makeHarness(in: directory, modelAnswers: [Self.clickNewItemPlan])
+
+            _ = await harness.run("click new item")
+
+            let summaries = try await harness.auditLog.readAllEvents()
+                .filter { $0.kind == .stepTiming }.map(\.summary)
+            #expect(summaries.contains { $0.hasPrefix("Planning took ") })
+        }
+    }
+
+    /// Spotify's window once read as no controls at all. Asking the model to pick from an empty
+    /// list only wastes three tries, so the step stops and says what went wrong.
+    @Test func windowWithNoControlsStopsWithoutAskingTheModel() async throws {
+        try await withTemporaryDirectory { directory in
+            let emptyTable = ElementTable(
+                elements: [], handleIndexByElementNumber: [:], readableText: "",
+                wasTruncated: false)
+            let harness = makeHarness(
+                in: directory, modelAnswers: [Self.clickNewItemLooselyPlan], table: emptyTable)
+
+            let outcome = await harness.run("click new item")
+
+            #expect(outcome == .blocked(.noControlsRead(appName: "Testbed"), stepNumber: 1))
+            #expect(harness.model.requests.count == 1)
+            let kinds = try await harness.auditLog.readAllEvents().map(\.kind)
+            #expect(kinds.contains(.controlsOffered))
+        }
+    }
+
+    /// When no control can be picked, the log lists what Glim read from the window, so a
+    /// control missing from the table (Notes' New Note) shows up in the Activity Log.
+    @Test func blockedPickLogsTheControlsGlimSaw() async throws {
+        try await withTemporaryDirectory { directory in
+            let archivePick = #"{"elementNumber":5,"blocked":false}"#
+            let harness = makeHarness(
+                in: directory,
+                modelAnswers: [
+                    #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"Compose"}]}"#,
+                    archivePick, archivePick, archivePick,
+                ])
+
+            _ = await harness.run(
+                "compose", runner: harness.makeRunner(policy: ChangingPolicy(Self.dangerOnlyPolicy))
+            )
+
+            let controlsEvents = try await harness.auditLog.readAllEvents()
+                .filter { $0.kind == .controlsOffered }
+            #expect(controlsEvents.count == 1)
+            let summary = controlsEvents.first?.summary ?? ""
+            #expect(summary.contains("[1] New Item (Button)"))
+            #expect(summary.contains("[3] Notes field (TextField)"))
+            #expect(summary.contains("[5] Archive (Button)"))
+        }
+    }
+
+    /// Note titles are list-row labels, and one may hold a password. The Activity Log never
+    /// keeps a secret-looking word, listed or cut by the limit.
+    @Test func secretLookingLabelsAreMaskedInTheControlsLog() async throws {
+        try await withTemporaryDirectory { directory in
+            let secretRow = UIElementSnapshot.fixture(
+                number: 6, role: "AXCell", label: "Wi-Fi: Qx7.pL2@vN9^k")
+            let table = ElementTable(
+                elements: Self.testbedTable.elements + [secretRow],
+                handleIndexByElementNumber: Self.testbedTable.handleIndexByElementNumber,
+                readableText: Self.testbedTable.readableText, wasTruncated: true,
+                leftOutControlLabels: ["Router: Zt9!mK3#pQ8$"])
+            let harness = makeHarness(
+                in: directory,
+                modelAnswers: [
+                    #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"Compose"}]}"#,
+                    #"{"elementNumber":0,"blocked":true,"reason":"No compose button"}"#,
+                ],
+                table: table)
+
+            _ = await harness.run("compose")
+
+            let summary =
+                try await harness.auditLog.readAllEvents()
+                .first { $0.kind == .controlsOffered }?.summary ?? ""
+            #expect(summary.contains("[6] Wi-Fi: [hidden] (Cell)"))
+            #expect(summary.contains("Router: [hidden]"))
+            #expect(!summary.contains("Qx7.pL2@vN9^k"))
+            #expect(!summary.contains("Zt9!mK3#pQ8$"))
+        }
+    }
+
+    @Test func controlsCutByTheLimitAreLogged() async throws {
+        try await withTemporaryDirectory { directory in
+            let table = ElementTable(
+                elements: Self.testbedTable.elements,
+                handleIndexByElementNumber: Self.testbedTable.handleIndexByElementNumber,
+                readableText: Self.testbedTable.readableText, wasTruncated: true,
+                leftOutControlLabels: ["Play My playlist"])
+            let harness = makeHarness(
+                in: directory,
+                modelAnswers: [
+                    #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"Compose"}]}"#,
+                    #"{"elementNumber":0,"blocked":true,"reason":"No compose button"}"#,
+                ],
+                table: table)
+
+            _ = await harness.run("compose")
+
+            let summary =
+                try await harness.auditLog.readAllEvents()
+                .first { $0.kind == .controlsOffered }?.summary ?? ""
+            #expect(summary.contains("Left out by the limit: Play My playlist."))
+        }
+    }
+
+    @Test func modelReportingNoMatchLogsTheControlsGlimSaw() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = makeHarness(
+                in: directory,
+                modelAnswers: [
+                    #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"Compose"}]}"#,
+                    #"{"elementNumber":0,"blocked":true,"reason":"No compose button"}"#,
+                ])
+
+            _ = await harness.run("compose")
+
+            let kinds = try await harness.auditLog.readAllEvents().map(\.kind)
+            #expect(kinds.contains(.controlsOffered))
+        }
+    }
+
+    /// With a saver attached, every step Laya answered is kept as a training example.
+    @Test func stepReviewedByLayaIsSavedAsATrainingExample() async throws {
+        try await withTemporaryDirectory { directory in
+            let saved = SavedExamples()
+            let harness = makeHarness(
+                in: directory,
+                modelAnswers: [Self.clickFirstButtonPlan, #"{"elementNumber":1,"blocked":false}"#])
+
+            _ = await harness.run(
+                "click the first button",
+                runner: harness.makeRunner(
+                    checkers: [ScriptedChecker(name: LayaChecker.checkerName, verdict: .agrees)],
+                    layaExampleSaver: { example in saved.append(example) }))
+
+            #expect(saved.examples.map(\.plannerPick) == ["1"])
         }
     }
 
@@ -487,7 +700,7 @@ struct TaskRunnerTests {
             let badPick = #"{"elementNumber":42,"blocked":false}"#
             let harness = makeHarness(
                 in: directory,
-                modelAnswers: [Self.clickNewItemLooselyPlan, badPick, badPick, badPick])
+                modelAnswers: [Self.clickFirstButtonPlan, badPick, badPick, badPick])
 
             let outcome = await harness.run("click new item")
 

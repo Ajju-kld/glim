@@ -14,6 +14,11 @@ public enum ScreenReadingLimits {
     public static let walkTimeBudget = Duration.milliseconds(1_500)
     /// Tunable: how long one accessibility call may wait for an app before giving up.
     public static let messagingTimeoutSeconds: Float = 1
+    /// Tunable: how long a just-woken Chromium app may take to show its controls. Chromium
+    /// waits two seconds after the switch is set before building its tree.
+    public static let chromiumTreeWait = Duration.seconds(3)
+    /// Tunable: pause between reads while waiting for a Chromium app's controls.
+    public static let chromiumTreePollInterval = Duration.milliseconds(250)
     /// Business rule (spec §10): with fewer labelled controls than this, questions use a
     /// screenshot.
     public static let minimumLabelledElementsForTextOnly = 5

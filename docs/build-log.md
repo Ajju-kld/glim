@@ -790,3 +790,122 @@ flow). `TorusGeometry` and `TorusOrbView` were removed. Checked with `ImageRende
 snapshots of every mood; the first rim was too harsh and was softened.
 
 **Gates:** `All gates passed.` — 374 tests in 62 suites.
+
+## 2026-09-23 — Log the controls Glim read when a step blocks
+
+Owner's log: "Click “New Note” in Notes" still blocked after three picks of "Notes, 126 notes",
+on the build that walks windows breadth-first; the owner says every app fails this way. The
+planner clicks an exactly-labelled control without asking the model, so being asked at all
+means no control labelled "New Note" was in the table. Why it is missing can't be seen from the
+log, and the terminal had no Accessibility access to dump Notes' tree.
+
+**Q:** How to get the list of controls Notes exposes? **A (owner):** log it from Glim, which
+already has Accessibility access.
+
+- **New `controlsOffered` log entry:** when a step blocks while picking a control (too many
+  misses, or the AI reports no match), the Activity Log lists every control read from the
+  window as `[number] label (role)`, the window title, and whether the table was cut at 80.
+
+**Gates:** `All gates passed.` — 376 tests in 62 suites.
+
+## 2026-09-23 — Greyed-out and empty windows, Chromium apps, read check
+
+The new `controlsOffered` entries showed two causes. **Notes:** New Note and Share were greyed
+out (the "All iCloud" view), so they were never listed and the model guessed. **Spotify:** no
+controls at all; it embeds Chromium (CEF) and ignores the `AXManualAccessibility` switch Glim
+sent.
+
+**Q:** Train Laya for this? **A:** No — Laya only reviews a pick; in both runs the right control
+was never on the list. Tuning Laya for Mac apps is its own project, fed by read-check data.
+**Q:** Which apps should the read check cover? **A (owner):** open apps only, read without
+switching or launching anything.
+
+- **Greyed-out planned control:** the table keeps the names of disabled controls (never
+  offered). When only a greyed-out control matches the plan, the step stops at once: "“New
+  Note” is greyed out in Notes right now, so clicking it would do nothing."
+- **Window with no controls:** stops without asking the model ("Glim couldn't read any
+  controls in Spotify's window").
+- **Chromium wake-up** (prior art: Vimac, Chromium `BrowserCrApplication`, CEF `cefclient`,
+  yabai/Rectangle/Hammerspoon): `ChromiumKind` detects Electron and CEF from the bundle's
+  frameworks, and Chrome-family browsers by bundle identifier. Electron gets
+  `AXManualAccessibility` (once per process), CEF gets `AXEnhancedUserInterface` (re-set if a
+  window manager turned it off), Chrome is woken by reading its role. Native apps are never
+  touched. Chromium builds the tree about 2 s after the switch, so a just-woken app is read
+  again every 250 ms for up to 3 s until controls appear. Window moves turn
+  `AXEnhancedUserInterface` off and back on around the move; on quit Glim turns off only the
+  switches it turned on.
+- **Read check** (Apps & Trust → "Check open apps"): reads each open app's window the way a
+  task does and shows controls, greyed out, unnamed, and a verdict (Readable / Thin / Nothing
+  readable / Couldn't read / Skipped). Never-touch apps aren't read. The Activity Log gets one
+  `readCheck` line of counts only — no control names or screen text.
+
+**Gates:** `All gates passed.` — 401 tests in 66 suites.
+
+## 2026-09-23 — Speed, clearer stops, and Laya training
+
+**Speed.** Measured on the owner's M2 / 16 GB with `qwen3-vl:8b`: reading a prompt costs about
+7.5 ms per token, so time follows prompt length. A pick with 80 controls took 13.5 s; the model
+was *not* thinking (`think: false` works — Ollama just returns the JSON in the `thinking`
+field), but with a whole window's controls in the planning prompt it sometimes copied them into
+steps until the 1,024-token cap (105 s in one test).
+- One control matching the plan's wording is picked without the model (0 s).
+- First picks offer a 20-control shortlist (13.5 s → 3.8 s); a retry offers every control.
+- Picks may write at most 64 tokens (`LanguageModelRequest.maximumAnswerTokens`).
+- The planning prompt lists only front-window controls relevant to the request (up to 20).
+- Shortlists weight rare words: "song" is in every Spotify playlist row, "next" in one control.
+
+**Clearer stops.** "Changed before Glim could act" now says what changed (or that the control
+is gone); the controls log line lists controls cut by the 80 limit.
+
+**Laya training** (spec `docs/specs/2026-09-23-laya-tuning-design.md`; owner: better second
+opinion, train on this Mac with MLX, labels from reviewed runs, approach A):
+- GlimCore: `SystemOneTargetQuestion` is what Laya is sent and what examples store;
+  `LayaExample` (secret-looking words masked), `LayaExampleStore` (JSON Lines),
+  `GlimSettings.savesLayaExamples` (off by default; older settings files load with it off).
+- Glim: Laya Training page — saving switch, progress to 200 examples / 5 apps, one-at-a-time
+  review, delete all.
+- `services/laya/training/`: loading and split, catch / false-alarm / top-1 scoring, promotion
+  rule, MLX head training, checkpoints; `scripts/train-laya.sh`; `glim_serve.py`.
+- Verified offline on the real v10s model: scoring works; one training pass on 30 synthetic
+  examples took 3.8 s at ~950 MB and cut loss 3.9 → 1.6; the saved checkpoint reloads through
+  Laya's own loader; the launcher answered a request in 46 ms.
+
+**Gates:** `All gates passed.` — 422 Swift tests in 69 suites, 17 Python tests.
+
+## 2026-09-23 — Window buttons, timings, log masking, new icon and README
+
+- **"Click Close button" plans:** the planner is told to use quitApp / minimizeWindow /
+  moveWindow instead of a window's own buttons, and a click aimed at close, minimize or zoom
+  with no matching control on screen stops at once ("Glim never clicks a window's close,
+  minimize or zoom buttons…") instead of three model retries.
+- **Timings:** each plan and step logs a `stepTiming` line (read window, pick, check, act,
+  confirm change) so a slow step shows its bottleneck.
+- **Log masking:** the `controlsOffered` line, window titles in it, and the pick-mismatch note
+  pass through `SecretMasker`. A note title that held a password-like word had been logged in
+  full and was then copied into this repo as a test example; it was replaced with a made-up
+  value before any commit.
+- **Icon:** `Resources/AppIcon/glim-icon.svg` redrawn around the new orb (sphere of flowing
+  light in the listening palette, aura, gloss, rim, under a notch), gradient-only so AppKit's
+  SVG renderer draws it; checked at 512 and 32 px. `docs/assets/glim-pill.svg` animates the new
+  orb through listening → planning → acting → done.
+- **README:** what's new, which apps Glim can read, control panel pages, teaching Laya, FAQ on
+  greyed-out buttons and speed; stale test count and "drag apps between tiers" removed.
+
+**Gates:** `All gates passed.` — 427 Swift tests in 69 suites, 17 Python tests.
+
+**Q:** Which license for the open-source release? **A (owner):** MIT. Copyright line uses the
+owner name from the design spec, `straxs`.
+
+**Q:** Add SECURITY.md, CONTRIBUTING.md and a Known limitations section for the public repo?
+**A (owner):** Yes. CI on GitHub is left for later (needs macOS 26 / Xcode 26 runners).
+
+## 2026-09-23 — Apps whose names hide invisible characters
+
+Owner's popup: step 1 "Could not find “WhatsApp”". Name matching only trimmed spaces and
+lowercased, so a name carrying an invisible formatting character never matched the plain name
+the planner writes — WhatsApp's Mac app is known to put a left-to-right mark (U+200E) before
+its name. `AppResolver` now drops Unicode format characters when comparing names and when
+listing app names for the planner and messages. Tests reproduce the failure first
+(`resolve(appNamed: "WhatsApp")` returned nothing).
+
+**Gates:** `All gates passed.` — 429 Swift tests in 69 suites, 17 Python tests.

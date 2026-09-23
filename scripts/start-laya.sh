@@ -38,4 +38,7 @@ fi
 export HF_HOME="$PWD/$MODEL_CACHE"
 export LOCALDECIDE_HOST="$SERVICE_HOST"
 echo "==> Starting Laya on http://$SERVICE_HOST:$SERVICE_PORT (model cache: $MODEL_CACHE)"
-exec "$VIRTUAL_ENVIRONMENT/bin/localdecide" serve --host "$SERVICE_HOST" --port "$SERVICE_PORT"
+export LOCALDECIDE_PORT="$SERVICE_PORT"
+# glim_serve.py runs localdecide on the checkpoint scripts/train-laya.sh promoted, if any.
+cd "$SERVICE_DIRECTORY"
+exec "../../$VIRTUAL_ENVIRONMENT/bin/python" glim_serve.py

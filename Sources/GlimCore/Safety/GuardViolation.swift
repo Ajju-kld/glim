@@ -15,6 +15,9 @@ public enum GuardViolation: Error, Sendable, Equatable {
     case forbiddenAction(matchedPhrase: String, elementLabel: String)
     case unverifiedApp(appName: String)
     case changedWhileWaiting(description: String)
+    case targetDisabled(description: String, appName: String)
+    case noControlsRead(appName: String)
+    case windowButtonTarget(description: String)
 
     /// Short headline for the guard popup.
     public var title: String {
@@ -33,6 +36,9 @@ public enum GuardViolation: Error, Sendable, Equatable {
         case .forbiddenAction: "Forbidden action"
         case .unverifiedApp: "App signature not verified"
         case .changedWhileWaiting: "The screen changed while you decided"
+        case .targetDisabled: "Control is greyed out"
+        case .noControlsRead: "No controls could be read"
+        case .windowButtonTarget: "Glim doesn't use window buttons"
         }
     }
 
@@ -67,6 +73,12 @@ public enum GuardViolation: Error, Sendable, Equatable {
             "\(appName) isn't signed by an Apple-issued certificate under its own identifier, so Glim won't open it."
         case .changedWhileWaiting(let description):
             "“\(description)” changed while Glim waited for you, so it stopped instead of acting on something new."
+        case .targetDisabled(let description, let appName):
+            "“\(description)” is greyed out in \(appName) right now, so clicking it would do nothing."
+        case .noControlsRead(let appName):
+            "Glim couldn't read any controls in \(appName)'s window."
+        case .windowButtonTarget(let description):
+            "Glim never clicks a window's close, minimize or zoom buttons (“\(description)”). Ask it to quit or minimize the app instead."
         }
     }
 }

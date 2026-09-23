@@ -7,13 +7,39 @@ enum ElementIdentityCheck {
     static func liveNode(_ node: AccessibilityNode, isSameControlAs snapshot: UIElementSnapshot)
         -> Bool
     {
-        guard node.role == snapshot.role, node.subrole == snapshot.subrole, !node.isSecureTextField,
-            let liveLabel = ElementTableBuilder.label(for: node), liveLabel == snapshot.label
-        else {
-            return false
+        difference(node, from: snapshot) == nil
+    }
+
+    /// What makes the live node a different control from the snapshot, in words for the log,
+    /// or nil when it is the same control.
+    static func difference(_ node: AccessibilityNode, from snapshot: UIElementSnapshot) -> String? {
+        guard !node.role.isEmpty else {
+            return "the control is gone"
         }
-        return node.title == snapshot.title
-            && node.elementDescription == snapshot.elementDescription
-            && node.helpText == snapshot.helpText && node.identifier == snapshot.identifier
+        if let change = change("role", from: snapshot.role, to: node.role)
+            ?? change("subrole", from: snapshot.subrole, to: node.subrole)
+        {
+            return change
+        }
+        if node.isSecureTextField {
+            return "it is a password field now"
+        }
+        guard node.isEnabled else {
+            return "it is greyed out now"
+        }
+        return change("label", from: snapshot.label, to: ElementTableBuilder.label(for: node))
+            ?? change("title", from: snapshot.title, to: node.title)
+            ?? change("description", from: snapshot.elementDescription, to: node.elementDescription)
+            ?? change("help text", from: snapshot.helpText, to: node.helpText)
+            ?? change("identifier", from: snapshot.identifier, to: node.identifier)
+    }
+
+    private static func change(_ attributeName: String, from before: String?, to after: String?)
+        -> String?
+    {
+        guard before != after else {
+            return nil
+        }
+        return "\(attributeName) “\(before ?? "none")” became “\(after ?? "none")”"
     }
 }

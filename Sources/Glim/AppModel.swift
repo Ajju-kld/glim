@@ -25,6 +25,12 @@ final class AppModel {
     private(set) var isTaskRunning = false
     private(set) var isListening = false
     private(set) var settingsMessage: String?
+    /// The latest read check, newest run only; empty until the person runs one.
+    var readCheckResults: [ReadCheckResult] = []
+    var isReadCheckRunning = false
+    /// Saved Laya training examples, as last loaded for the Laya Training page.
+    var layaExamples: [LayaExample] = []
+    var layaTrainingMessage: String?
     var selectedPage = ControlPanelPage.dashboard
 
     let services = LiveServices()

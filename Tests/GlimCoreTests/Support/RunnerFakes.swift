@@ -59,7 +59,10 @@ final class ScriptedScreenReader: ScreenReading {
             changesEveryRead ? "\(table.readableText) read \(readNumber)" : table.readableText
         let tableForThisRead = ElementTable(
             elements: table.elements, handleIndexByElementNumber: table.handleIndexByElementNumber,
-            readableText: readableText, wasTruncated: table.wasTruncated)
+            readableText: readableText, wasTruncated: table.wasTruncated,
+            disabledControlLabels: table.disabledControlLabels,
+            unlabelledControlCount: table.unlabelledControlCount,
+            leftOutControlLabels: table.leftOutControlLabels)
         return ScreenSnapshot(
             app: app, windowTitle: "\(app.identity.displayName) window", table: tableForThisRead)
     }
@@ -180,5 +183,16 @@ final class ChangingPolicy: Sendable {
 
     func update(_ change: (inout SafetyPolicy) -> Void) {
         policy.withLock { change(&$0) }
+    }
+}
+
+/// Collects the training examples a runner hands its saver.
+final class SavedExamples: Sendable {
+    private let saved = Mutex<[LayaExample]>([])
+
+    var examples: [LayaExample] { saved.withLock { $0 } }
+
+    func append(_ example: LayaExample) {
+        saved.withLock { $0.append(example) }
     }
 }

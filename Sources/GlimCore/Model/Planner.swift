@@ -14,6 +14,14 @@ public struct Planner: Sendable {
     }
 
     private static let defaultBlockedReason = "The AI could not find a matching control."
+    /// Tunable: controls the model sees on a first pick. Reading the prompt is most of a
+    /// pick's time on a laptop, so it gets the closest matches first and every control on retry.
+    public static let pickShortlistLimit = 20
+    /// Tunable: a pick answer is a number and a flag; this cap stops a runaway answer early.
+    public static let pickAnswerTokenLimit = 64
+    /// Tunable: front-window controls listed in the planning prompt, those closest to the
+    /// request. A whole window's list slowed planning and tempted the model to copy it.
+    public static let planningControlLimit = 20
 
     private let languageModel: any LanguageModel
 
@@ -70,7 +78,16 @@ public struct Planner: Sendable {
         if step.kind == .typeText, candidates.count == 1, let onlyField = candidates.first {
             return .element(onlyField)
         }
-        var prompt = Self.targetPrompt(for: step, goal: goal, candidates: candidates)
+        if let onlyMatch = Self.onlyElementMatchingPlan(step.targetDescription, in: candidates) {
+            return .element(onlyMatch)
+        }
+        let offeredCandidates =
+            retryNote == nil
+            ? CandidateShortlist.shortlist(
+                candidates, targetDescription: step.targetDescription ?? "",
+                limit: Self.pickShortlistLimit)
+            : candidates
+        var prompt = Self.targetPrompt(for: step, goal: goal, candidates: offeredCandidates)
         if let retryNote {
             prompt += "\nYour previous answer was rejected: \(retryNote)"
         }
@@ -78,7 +95,8 @@ public struct Planner: Sendable {
             LanguageModelRequest(
                 systemPrompt: PlannerPrompts.targetPicking,
                 userPrompt: prompt,
-                responseSchema: PlannerSchemas.target))
+                responseSchema: PlannerSchemas.target,
+                maximumAnswerTokens: Self.pickAnswerTokenLimit))
         let answer = try decode(TargetAnswer.self, from: answerText)
         if answer.blocked {
             return .blocked(reason: answer.reason ?? Self.defaultBlockedReason)
@@ -122,12 +140,28 @@ public struct Planner: Sendable {
         return matches.count == 1 ? matches.first : nil
     }
 
+    /// The one control the plan's wording fits, by the same rule that accepts a model's pick.
+    private static func onlyElementMatchingPlan(
+        _ targetDescription: String?, in candidates: [UIElementSnapshot]
+    ) -> UIElementSnapshot? {
+        guard let targetDescription else {
+            return nil
+        }
+        let matcher = PlanMatcher()
+        let matches = candidates.filter { element in
+            matcher.elementMatchesPlan(targetDescription: targetDescription, element: element)
+        }
+        return matches.count == 1 ? matches.first : nil
+    }
+
     // MARK: - Prompts
 
     /// The lists that rarely change come first and the request comes last, so Ollama can reuse
     /// its cached reading of the prompt's start instead of reading every line again.
     static func planningPrompt(for context: PlanningContext) -> String {
-        let controlLines = context.elementLabels.map { "- \($0)" }.joined(separator: "\n")
+        let relevantLabels = CandidateShortlist.relevantLabels(
+            context.elementLabels, to: context.goal, limit: planningControlLimit)
+        let controlLines = relevantLabels.map { "- \($0)" }.joined(separator: "\n")
         return """
             Installed apps: \(context.installedAppNames.joined(separator: ", "))
             Running apps: \(context.runningAppNames.joined(separator: ", "))
