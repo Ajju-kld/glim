@@ -111,3 +111,50 @@ struct OllamaClientTests {
                 == "http://127.0.0.1:11434/api/tags")
     }
 }
+
+struct OllamaThinkingModelTests {
+    let request = LanguageModelRequest(
+        systemPrompt: "s", userPrompt: "u", responseSchema: ["type": "object"])
+
+    @Test func answerPlacedInTheThinkingFieldIsStillRead() async throws {
+        let fakeTransport = FakeHTTPTransport(replies: [
+            .response(
+                statusCode: 200,
+                body:
+                    #"{"message":{"role":"assistant","content":"","thinking":"{\"kind\":\"task\",\"steps\":[]}"},"done":true}"#
+            )
+        ])
+        let client = OllamaClient(transport: fakeTransport, modelName: "qwen3-vl:8b")
+
+        #expect(try await client.respond(to: request) == #"{"kind":"task","steps":[]}"#)
+    }
+
+    @Test func emptyAnswerEverywhereIsAnError() async {
+        let fakeTransport = FakeHTTPTransport(replies: [
+            .response(
+                statusCode: 200,
+                body: #"{"message":{"role":"assistant","content":"","thinking":""},"done":true}"#)
+        ])
+        let client = OllamaClient(transport: fakeTransport, modelName: "qwen3-vl:8b")
+
+        await #expect(throws: LanguageModelError.self) {
+            _ = try await client.respond(to: request)
+        }
+    }
+
+    @Test func generationLengthIsCapped() async throws {
+        let fakeTransport = FakeHTTPTransport(replies: [
+            .response(
+                statusCode: 200,
+                body: #"{"message":{"role":"assistant","content":"{}"},"done":true}"#)
+        ])
+        let client = OllamaClient(transport: fakeTransport, modelName: "qwen3-vl:8b")
+
+        _ = try await client.respond(to: request)
+
+        let body = try jsonObject(of: try #require(fakeTransport.sentRequests.first))
+        #expect(
+            (body["options"] as? [String: Any])?["num_predict"] as? Int
+                == OllamaClient.maximumAnswerTokens)
+    }
+}

@@ -6,6 +6,9 @@ public struct OllamaClient: LanguageModel {
     public static let requestTimeoutSeconds: TimeInterval = 60
     /// Tunable: temperature 0 makes plans repeatable for the same request and screen.
     public static let planningTemperature = 0.0
+    /// Tunable: the longest answer the model may write — a 20-step plan fits well inside it,
+    /// and a runaway generation stops instead of hanging the task.
+    public static let maximumAnswerTokens = 1_024
     private static let notFoundStatusCode = 404
     private static let successStatusCodes = 200..<300
 
@@ -25,12 +28,19 @@ public struct OllamaClient: LanguageModel {
     }
 
     private struct ChatOptions: Encodable {
+        enum CodingKeys: String, CodingKey {
+            case temperature
+            case maximumAnswerTokens = "num_predict"
+        }
+
         let temperature: Double
+        let maximumAnswerTokens: Int
     }
 
     private struct ChatResponse: Decodable {
         struct Message: Decodable {
             let content: String
+            let thinking: String?
         }
         let message: Message
     }
@@ -70,7 +80,9 @@ public struct OllamaClient: LanguageModel {
                     role: "user", content: request.userPrompt,
                     images: userImages.isEmpty ? nil : userImages),
             ],
-            options: ChatOptions(temperature: Self.planningTemperature))
+            options: ChatOptions(
+                temperature: Self.planningTemperature, maximumAnswerTokens: Self.maximumAnswerTokens
+            ))
         let body: Data
         do {
             body = try JSONEncoder().encode(chatRequest)
@@ -79,7 +91,20 @@ public struct OllamaClient: LanguageModel {
                 reason: "Could not encode the request: \(error.localizedDescription)")
         }
         let data = try await send(path: "/api/chat", method: "POST", body: body)
-        return try decode(ChatResponse.self, from: data).message.content
+        return try Self.answer(in: decode(ChatResponse.self, from: data).message)
+    }
+
+    /// The answer text. Thinking models such as `qwen3-vl` can put their schema-constrained
+    /// answer in `thinking` and leave `content` empty, even with `think: false`; either field is
+    /// accepted, and the planner validates the JSON strictly afterwards.
+    private static func answer(in message: ChatResponse.Message) throws(LanguageModelError)
+        -> String
+    {
+        let answer = message.content.isEmpty ? (message.thinking ?? "") : message.content
+        guard answer.contains(where: { !$0.isWhitespace }) else {
+            throw .malformedResponse(reason: "The model returned an empty answer.")
+        }
+        return answer
     }
 
     /// Names of the models Ollama has installed, for the setup check.

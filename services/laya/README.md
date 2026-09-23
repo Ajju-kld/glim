@@ -52,6 +52,21 @@ git -C services/laya/src show --stat bafba5975cc1bdb0138f3baa5330108afa0f9055
 git -C services/laya/src diff bafba5975cc1bdb0138f3baa5330108afa0f9055 -- localdecide/serve.py
 ```
 
+## Pin re-check before installing (2026-09-23)
+
+Done before the first install, as the notes above require:
+
+- `git rev-parse HEAD` in `src/` = `bafba5975cc1bdb0138f3baa5330108afa0f9055` (the pin).
+- `localdecide/serve.py` at the pin is **byte-identical** to the reviewed copy.
+- The pin also contains modules the earlier snapshot lacked: `drivers.py` (Playwright/CDP browser
+  driver; its only network call is to a local Chrome debugging endpoint), `loop.py` (browser
+  agent loop), `mcp_server.py`, `grounding.py`. None runs on import, and `serve` doesn't use
+  them.
+- The server path imports only `decider`, `page` and `backends`; the backend loads
+  `cklxx/laya-browser` (subfolder `v10s`) through `laya-mlx`, downloading to `model-cache/`.
+- Remaining gap: the Python dependencies (`laya-mlx` and what it pulls in) come from PyPI
+  unpinned.
+
 ## v2 plan
 
 Replace the service with in-process CoreML behind the same `TargetChecker` interface: adapt

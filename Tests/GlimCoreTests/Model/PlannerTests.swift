@@ -221,3 +221,35 @@ struct PlannerTests {
         #expect(model.requests.first?.imagesPNG == [screenshot])
     }
 }
+
+struct PlannerSchemaTests {
+    func encodedPlanSchema() throws -> [String: Any] {
+        let data = try JSONEncoder().encode(PlannerSchemas.plan)
+        return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    @Test func everyActionHasAVariantRequiringItsFields() throws {
+        let schema = try encodedPlanSchema()
+        let steps = try #require(
+            (schema["properties"] as? [String: Any])?["steps"] as? [String: Any])
+        let variants = try #require(
+            (steps["items"] as? [String: Any])?["anyOf"] as? [[String: Any]])
+        var requiredFieldsByAction: [String: Set<String>] = [:]
+        for variant in variants {
+            let action = try #require(
+                ((variant["properties"] as? [String: Any])?["action"] as? [String: Any])?["enum"]
+                    as? [String])
+            requiredFieldsByAction[try #require(action.first)] = Set(
+                try #require(variant["required"] as? [String]))
+        }
+
+        #expect(Set(requiredFieldsByAction.keys) == Set(ActionKind.allCases.map(\.rawValue)))
+        #expect(requiredFieldsByAction["click"] == ["action", "app", "target"])
+        #expect(requiredFieldsByAction["typeText"] == ["action", "app", "target", "text"])
+        #expect(requiredFieldsByAction["moveWindow"] == ["action", "app", "preset"])
+        #expect(requiredFieldsByAction["pressKey"] == ["action", "app", "key"])
+        #expect(requiredFieldsByAction["scroll"] == ["action", "app", "direction"])
+        #expect(requiredFieldsByAction["speak"] == ["action", "text"])
+        #expect(requiredFieldsByAction["openApp"] == ["action", "app"])
+    }
+}
