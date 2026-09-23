@@ -5,6 +5,8 @@ import SwiftUI
 @MainActor
 final class ControlPanelWindowController {
     private static let defaultSize = CGSize(width: 960, height: 640)
+    /// Tunable: the smallest the window may be resized to while the sidebar and cards fit.
+    private static let minimumSize = CGSize(width: 820, height: 540)
     private static let autosaveName = "GlimControlPanel"
 
     private let model: AppModel
@@ -23,6 +25,9 @@ final class ControlPanelWindowController {
 
     private func makeWindow() -> NSWindow {
         let hostingController = NSHostingController(rootView: ControlPanelView().environment(model))
+        // The orbs animate every frame; if the view also set the window's size limits, AppKit
+        // would re-run layout during layout and crash. The limits are set here instead.
+        hostingController.sizingOptions = []
         let newWindow = NSWindow(contentViewController: hostingController)
         newWindow.title = "Glim"
         newWindow.styleMask = [
@@ -31,6 +36,7 @@ final class ControlPanelWindowController {
         newWindow.titlebarAppearsTransparent = true
         newWindow.titleVisibility = .hidden
         newWindow.appearance = NSAppearance(named: .darkAqua)
+        newWindow.contentMinSize = Self.minimumSize
         newWindow.setContentSize(Self.defaultSize)
         newWindow.isReleasedWhenClosed = false
         newWindow.setFrameAutosaveName(Self.autosaveName)

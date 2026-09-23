@@ -22,14 +22,14 @@ It is built around one rule:
 > **The AI proposes. Code decides. You approve.**
 
 The model never touches your Mac. It can only *suggest* steps; every suggestion passes a safety
-gate written in plain, tested Swift. Low-risk plans start at once; anything risky waits for your
-click on **Approve**.
+gate written in plain, tested Swift. Plans start at once; Glim asks only before a dangerous step
+(send, Return, quitting, a supervised app), and forbidden steps are always blocked.
 
 ## Try saying
 
 | You say | Glim does |
 |---|---|
-| "Open Notes and write buy milk" | Low-risk, so it just runs: opens Notes, clicks New Note, types "buy milk" |
+| "Open Notes and write buy milk" | Just runs: opens Notes, clicks New Note, types "buy milk" |
 | "What's on my screen?" | Reads the window and answers aloud — no actions |
 | "Put Notes on the left, Safari on the right and minimize Slack" | Arranges your windows in one plan |
 | "Play music" | Opens Music and presses play |
@@ -44,9 +44,7 @@ flowchart LR
     B --> C["Planner<br/>(qwen3-vl on Ollama)"]
     C --> D{"Screen the plan"}
     D -- "forbidden step" --> X["🚫 Red popup"]
-    D -- "risky" --> E["You click<br/>Approve"]
-    D -- "low-risk" --> F["For each step:<br/>pick a control"]
-    E --> F
+    D -- "ok" --> F["For each step:<br/>pick a control"]
     F --> G["Second opinions<br/>Laya · Jev (opt-in)"]
     G --> H{"Safety gate"}
     H -- "deny" --> X

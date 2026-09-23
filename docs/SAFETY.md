@@ -9,23 +9,26 @@ The AI model never touches your Mac directly. It can only *suggest* steps, and e
 passes through checks written in plain Swift code — code you can read, and that is tested by
 more than a hundred automated tests.
 
-## 1. You approve anything that isn't low-risk
+## 1. Glim asks only before dangerous steps
 
-When you say "open Notes and write buy milk", every step is low-risk: Notes is a full-control
-app, New Note isn't a risky word, and "buy milk" is what you said. So Glim starts at once and
-the notch shows each step as it runs — touch the keyboard or mouse, or press ⌃⌥⌘K, to stop it.
+When you say "open Notes and write buy milk", Glim starts at once and the notch shows each
+step as it runs — touch the keyboard or mouse, or press ⌃⌥⌘K, to stop it.
 
-A plan shows first, before anything happens, when any step:
+Glim stops and asks you, at that moment, only before a step that:
 
-- is in a **supervised** app, or quits an app;
-- presses Return;
-- clicks or types into a control whose name has a Confirm word (send, share, reply…);
-- types text you didn't say (it came from the AI or the screen, so you see it first).
+- clicks a control whose name has a Confirm word (send, submit, post, share, reply, forward,
+  accept, agree, close);
+- presses Return (which can send);
+- quits an app;
+- acts in a **supervised** app (VS Code, Cursor, Xcode, Claude, ChatGPT…).
 
-You can turn off "Start low-risk plans without asking" in **Safety Rules**; then every plan
-shows first. Turning it back on needs Touch ID.
+Forbidden steps (delete, buy, sign out, allow…) are never asked about — they are always blocked.
 
-When a plan shows, it looks like this:
+You can turn off "Ask only before dangerous steps" in **Safety Rules**. Then every plan waits
+for your Approve first, and Glim also asks when the AI's pick differs from the plan's wording
+or when the Laya/Jev checkers disagree or are offline. Turning it back on needs Touch ID.
+
+With the switch off, a plan looks like this:
 
 ```
 1  Open Notes
@@ -121,8 +124,9 @@ A second model double-checks every click the main model picks:
   never field contents, never the text you're about to type, and never anything from messaging
   apps. A label can be the words a control shows (a list row is labelled by its text).
 
-If a checker is confident the main model picked the wrong button, Glim asks you. If a checker is
-offline, every click and typing step asks you.
+With "Ask only before dangerous steps" off: if a checker is confident the main model picked
+the wrong button, Glim asks you, and if a checker is offline, every click and typing step asks
+you. With it on (the default), their verdicts are recorded in the Activity Log instead.
 
 ## 6. The kill switch
 

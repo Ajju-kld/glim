@@ -11,7 +11,8 @@ extension SafetyPolicy {
                 forbidden: Self.union(riskWords.forbidden, other.riskWords.forbidden),
                 confirm: Self.union(riskWords.confirm, other.riskWords.confirm)),
             appTrust: appTrust.combinedStrictly(with: other.appTrust),
-            autoRunsLowRiskPlans: autoRunsLowRiskPlans && other.autoRunsLowRiskPlans)
+            asksOnlyBeforeDangerousSteps: asksOnlyBeforeDangerousSteps
+                && other.asksOnlyBeforeDangerousSteps)
     }
 
     /// Phrases from both lists, in order, without repeating a phrase that normalizes the same.

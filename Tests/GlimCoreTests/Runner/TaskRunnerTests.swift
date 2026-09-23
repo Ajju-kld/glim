@@ -20,20 +20,20 @@ struct TaskRunnerTests {
 
     static let quickTiming = RunnerTiming(
         settleAfterAction: .zero, appLaunchTimeout: .milliseconds(50),
-        appLaunchPollInterval: .milliseconds(5))
+        appLaunchPollInterval: .milliseconds(5), windowWaitTimeout: .milliseconds(100))
 
     /// Plans always go through the approval panel here, so each test can check it; the
-    /// tests that start low-risk plans at once turn `autoRunsLowRiskPlans` back on.
+    /// tests of asking only before danger turn `asksOnlyBeforeDangerousSteps` back on.
     static var testPolicy: SafetyPolicy {
         var policy = SafetyPolicy.safeDefaults
         policy.limits.minimumSecondsBetweenActions = 0
-        policy.autoRunsLowRiskPlans = false
+        policy.asksOnlyBeforeDangerousSteps = false
         return policy
     }
 
-    static var autoRunPolicy: SafetyPolicy {
+    static var dangerOnlyPolicy: SafetyPolicy {
         var policy = testPolicy
-        policy.autoRunsLowRiskPlans = true
+        policy.asksOnlyBeforeDangerousSteps = true
         return policy
     }
 
@@ -268,7 +268,7 @@ struct TaskRunnerTests {
 
             let outcome = await harness.run(
                 "click new item",
-                runner: harness.makeRunner(policy: ChangingPolicy(Self.autoRunPolicy)))
+                runner: harness.makeRunner(policy: ChangingPolicy(Self.dangerOnlyPolicy)))
 
             #expect(outcome == .completed)
             #expect(harness.decisions.plansShown.isEmpty)
@@ -281,20 +281,54 @@ struct TaskRunnerTests {
         }
     }
 
-    @Test func riskyPlanStillShowsThePanelWithAutoRunOn() async throws {
+    @Test func dangerousStepAsksAtTheStepInsteadOfThroughAPlan() async throws {
         try await withTemporaryDirectory { directory in
             let harness = makeHarness(
                 in: directory,
                 modelAnswers: [
                     #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"Send"}]}"#
                 ],
-                approvesPlans: false)
+                approvesPlans: false, confirmAnswers: [false])
 
             let outcome = await harness.run(
-                "send it", runner: harness.makeRunner(policy: ChangingPolicy(Self.autoRunPolicy)))
+                "send it",
+                runner: harness.makeRunner(policy: ChangingPolicy(Self.dangerOnlyPolicy)))
 
-            #expect(outcome == .cancelled)
-            #expect(harness.decisions.plansShown.count == 1)
+            #expect(outcome == .stopped(.panelCancelled))
+            #expect(harness.decisions.plansShown.isEmpty)
+            #expect(
+                harness.decisions.confirmationsShown.first?.reasons == [
+                    .riskyWord(matchedPhrase: "send", elementLabel: "Send")
+                ])
+            #expect(harness.executor.performed.isEmpty)
+        }
+    }
+
+    /// Notes can be running with every window closed; reopening it brings a window back a
+    /// moment later, and the step waits for it instead of failing.
+    @Test func stepWaitsForAWindowThatAppearsLate() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = Harness(
+                model: FakeLanguageModel(answers: [.success(Self.clickNewItemPlan)]),
+                screenReader: ScriptedScreenReader(table: Self.testbedTable, readsWithoutWindow: 3),
+                executor: RecordingExecutor(), decisions: ScriptedDecisions(),
+                auditLog: AuditLog(directory: directory))
+
+            #expect(await harness.run("click new item") == .completed)
+            #expect(harness.executor.performed.map(\.targetElement) == [Self.newItemButton])
+        }
+    }
+
+    @Test func windowThatNeverAppearsFailsWithTheReason() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = Harness(
+                model: FakeLanguageModel(answers: [.success(Self.clickNewItemPlan)]),
+                screenReader: ScriptedScreenReader(
+                    table: Self.testbedTable, readsWithoutWindow: .max),
+                executor: RecordingExecutor(), decisions: ScriptedDecisions(),
+                auditLog: AuditLog(directory: directory))
+
+            #expect(await harness.run("click new item") == .failed("Testbed has no open window."))
             #expect(harness.executor.performed.isEmpty)
         }
     }

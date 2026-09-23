@@ -11,7 +11,7 @@ struct SafetyPolicyTests {
         var savedObject = try #require(
             try JSONSerialization.jsonObject(with: JSONEncoder().encode(defaults))
                 as? [String: Any])
-        savedObject.removeValue(forKey: "autoRunsLowRiskPlans")
+        savedObject.removeValue(forKey: "asksOnlyBeforeDangerousSteps")
         let savedData = try JSONSerialization.data(withJSONObject: savedObject)
 
         let loadedPolicy = try JSONDecoder().decode(SafetyPolicy.self, from: savedData)

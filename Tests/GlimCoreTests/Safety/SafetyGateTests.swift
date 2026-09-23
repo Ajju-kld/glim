@@ -4,6 +4,12 @@ import Testing
 
 struct SafetyGateTests {
     let gate = SafetyGate(policy: .safeDefaults)
+    /// Asks for every reason, not only dangerous ones.
+    let cautiousGate: SafetyGate = {
+        var policy = SafetyPolicy.safeDefaults
+        policy.asksOnlyBeforeDangerousSteps = false
+        return SafetyGate(policy: policy)
+    }()
     let newNoteButton = UIElementSnapshot.fixture(number: 1, label: "New Note")
     let noteBody = UIElementSnapshot.fixture(number: 2, role: "AXTextArea", label: "Note body")
 
@@ -218,8 +224,20 @@ struct SafetyGateTests {
         let archiveButton = UIElementSnapshot.fixture(label: "Archive")
 
         #expect(
-            gate.evaluate(clickNewNote(element: archiveButton))
+            cautiousGate.evaluate(clickNewNote(element: archiveButton))
                 == .needsConfirmation([.planMismatch(planned: "New Note", chosen: "Archive")]))
+    }
+
+    @Test func doubtsAboutTheAIDoNotAskWhenOnlyDangerAsks() {
+        let archiveButton = UIElementSnapshot.fixture(label: "Archive")
+        let concerns: [ConfirmationReason] = [
+            .checkerDisagrees(checkerName: "Laya", checkerChoice: "New Note"),
+            .checkerOffline(checkerName: "Jev"),
+        ]
+
+        #expect(
+            gate.evaluate(clickNewNote(element: archiveButton, checkerConcerns: concerns))
+                == .allow)
     }
 
     @Test func checkerConcernsAreShownToThePerson() {
@@ -227,7 +245,7 @@ struct SafetyGateTests {
             checkerName: "Laya", checkerChoice: "Archive")
 
         #expect(
-            gate.evaluate(clickNewNote(checkerConcerns: [concern]))
+            cautiousGate.evaluate(clickNewNote(checkerConcerns: [concern]))
                 == .needsConfirmation([concern]))
     }
 
@@ -257,11 +275,17 @@ struct SafetyGateTests {
             checkerConcerns: [concern])
 
         #expect(
-            gate.evaluate(context)
+            cautiousGate.evaluate(context)
                 == .needsConfirmation([
                     .riskyWord(matchedPhrase: "send", elementLabel: "Send"),
                     .planMismatch(planned: "Run", chosen: "Send"),
                     concern,
+                    .supervisedApp(appName: "Cursor"),
+                ]))
+        #expect(
+            gate.evaluate(context)
+                == .needsConfirmation([
+                    .riskyWord(matchedPhrase: "send", elementLabel: "Send"),
                     .supervisedApp(appName: "Cursor"),
                 ]))
     }

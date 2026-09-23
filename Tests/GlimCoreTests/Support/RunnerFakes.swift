@@ -11,11 +11,24 @@ final class ScriptedScreenReader: ScreenReading {
     private let returnTargetTexts: [String]
     private let readCount = Mutex(0)
     private let readApps = Mutex<[String]>([])
+    private let readsWithoutWindow: Int
 
-    init(table: ElementTable, changesEveryRead: Bool = true, returnTargetTexts: [String] = []) {
+    /// Creates a reader that returns `table`.
+    ///
+    /// - Parameters:
+    ///   - table: The controls every read returns.
+    ///   - changesEveryRead: Whether each read looks different, so actions count as changes.
+    ///   - returnTargetTexts: What pressing Return would activate.
+    ///   - readsWithoutWindow: How many reads report no window before one appears, as when an
+    ///     app that was running with no windows is reopened.
+    init(
+        table: ElementTable, changesEveryRead: Bool = true, returnTargetTexts: [String] = [],
+        readsWithoutWindow: Int = 0
+    ) {
         currentTable = Mutex(table)
         self.changesEveryRead = changesEveryRead
         self.returnTargetTexts = returnTargetTexts
+        self.readsWithoutWindow = readsWithoutWindow
     }
 
     /// Simulates the screen changing, for example while a panel waits for the person.
@@ -37,6 +50,9 @@ final class ScriptedScreenReader: ScreenReading {
         let readNumber = readCount.withLock { count in
             count += 1
             return count
+        }
+        guard readNumber > readsWithoutWindow else {
+            throw .noWindow(appName: app.identity.displayName)
         }
         let table = currentTable.withLock { $0 }
         let readableText =

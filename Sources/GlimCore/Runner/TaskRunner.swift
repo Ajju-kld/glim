@@ -136,8 +136,9 @@ public struct TaskRunner: Sendable {
         }
         try await audit(
             .planProposed, screenedPlan.steps.map(\.action.summary).joined(separator: " → "))
-        if LowRiskPlanRule.startsWithoutApproval(screenedPlan, policy: currentPolicy) {
-            try await audit(.planApproved, "Started without asking: every step is low-risk.")
+        if currentPolicy.asksOnlyBeforeDangerousSteps {
+            try await audit(
+                .planApproved, "Started without asking; any dangerous step will ask first.")
         } else {
             onEvent(.awaitingPlanApproval(screenedPlan))
             guard await dependencies.decisions.approvePlan(screenedPlan) else {

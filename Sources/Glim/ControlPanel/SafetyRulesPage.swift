@@ -17,9 +17,9 @@ struct SafetyRulesPage: View {
             GlassCard(title: "Approvals", systemImage: "checkmark.shield", tint: .green) {
                 Toggle(isOn: autoRunBinding) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Start low-risk plans without asking")
+                        Text("Ask only before dangerous steps")
                         Text(
-                            "Opening apps, arranging windows, and clicking or typing what you said in full-control apps. Supervised apps, quitting, Return, risky words and text you didn't say still ask."
+                            "Plans start right away. Glim asks only before a step that sends or shares (risky words), presses Return, quits an app, or acts in a supervised app. Forbidden steps are always blocked."
                         )
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -70,9 +70,9 @@ struct SafetyRulesPage: View {
     /// Turning this on needs Touch ID; if the prompt is cancelled the switch springs back.
     private var autoRunBinding: Binding<Bool> {
         Binding(
-            get: { model.settings.safetyPolicy.autoRunsLowRiskPlans },
+            get: { model.settings.safetyPolicy.asksOnlyBeforeDangerousSteps },
             set: { newValue in
-                model.changeSettings { $0.safetyPolicy.autoRunsLowRiskPlans = newValue }
+                model.changeSettings { $0.safetyPolicy.asksOnlyBeforeDangerousSteps = newValue }
             })
     }
 

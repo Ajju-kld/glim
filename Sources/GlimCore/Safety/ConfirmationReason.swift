@@ -9,6 +9,17 @@ public enum ConfirmationReason: Sendable, Equatable {
     case supervisedApp(appName: String)
     case quitApp(appName: String)
 
+    /// Whether this reason is a danger to the person — something that sends, submits or
+    /// closes, or an app they chose to supervise. The others (a pick that differs from the plan's
+    /// wording, a checker that disagrees or is offline) are doubts about the AI, not dangers;
+    /// with ``SafetyPolicy/asksOnlyBeforeDangerousSteps`` on they don't ask.
+    public var isDangerous: Bool {
+        switch self {
+        case .riskyWord, .pressReturn, .supervisedApp, .quitApp: true
+        case .planMismatch, .checkerDisagrees, .checkerOffline: false
+        }
+    }
+
     /// One sentence for the confirmation panel.
     public var explanation: String {
         switch self {

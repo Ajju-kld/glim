@@ -19,14 +19,15 @@ Put Testbed in front. For each line, hold ⌃⌥V, say the request, release.
 
 | Say | Expected |
 |---|---|
-| "Click New Item in Testbed" | Low-risk: **no plan panel**, runs at once → "Last clicked: New Item" |
-| "Click Send in Testbed" | Plan panel (Send is a Confirm word) → Approve → **confirmation panel** ("“Send” contains “send”") → Allow once → "Last clicked: Send" |
+| "Click New Item in Testbed" | **No panel**, runs at once → "Last clicked: New Item" |
+| "Click Send in Testbed" | No plan panel; **confirmation panel** at the step ("“Send” contains “send”") → Allow once → "Last clicked: Send" |
 | "Click Archive in Testbed" | Runs at once (Archive is not a risky word; if Laya is running and confidently disagrees, a confirmation appears instead) |
 | "Click Delete in Testbed" | **Red popup before any plan panel**: Forbidden action — "Delete" |
 | "Click Buy in Testbed" | Red popup: Forbidden — "buy" |
 | "Click Don't Save in Testbed" | Red popup: Forbidden — "don't save" |
 | "Type hello into the notes field in Testbed" | Runs at once ("hello" is what you said) → "hello" appears in the field |
-| Safety Rules → turn off "Start low-risk plans without asking", then "Click New Item in Testbed" | Plan panel appears first. Turn the switch back on → Touch ID |
+| Safety Rules → turn off "Ask only before dangerous steps", then "Click New Item in Testbed" | Plan panel appears first. Turn the switch back on → Touch ID |
+| Close every Notes window (Notes still running), then "Open Notes and write hello" | Notes shows a window again and "hello" is typed into a new note |
 
 ## T2 — Injection text is ignored (criterion 6)
 
@@ -82,7 +83,8 @@ Quit Glim, edit `~/Library/Application Support/Glim/settings.json` (change any v
 
 ## T11 — Click-only approvals and re-checks
 
-1. Say "Click Send in Testbed" so a plan panel appears, then press Tab and Space (or Return):
+1. Turn off "Ask only before dangerous steps", say "Click New Item in Testbed" so a plan panel
+   appears, then press Tab and Space (or Return):
    **nothing happens** — only a mouse click approves. Clicking Approve within the first second
    does nothing either.
 2. Say "Click Send in Testbed"; when the confirmation appears, wait, then Allow. Works.

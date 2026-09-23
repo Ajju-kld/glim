@@ -38,7 +38,7 @@ public struct LiveExecutor: ActionPerforming {
     ) async throws(ExecutionError) {
         switch action.step {
         case .switchApp:
-            try await activate(processIdentifier: processIdentifier, appName: appName)
+            try await bringForward(action.app)
         case .quitApp:
             try await terminate(processIdentifier: processIdentifier, appName: appName)
         case .click:
@@ -77,9 +77,8 @@ public struct LiveExecutor: ActionPerforming {
     // MARK: - Apps
 
     private func openApp(_ app: ResolvedApp) async throws(ExecutionError) {
-        if let processIdentifier = app.processIdentifier {
-            try await activate(
-                processIdentifier: processIdentifier, appName: app.identity.displayName)
+        if app.processIdentifier != nil {
+            try await bringForward(app)
             return
         }
         guard let bundleURL = app.bundleURL else {
@@ -93,6 +92,27 @@ public struct LiveExecutor: ActionPerforming {
         } catch {
             throw .appDidNotOpen(
                 appName: app.identity.displayName, reason: error.localizedDescription)
+        }
+    }
+
+    /// Brings a running app to the front the way clicking its Dock icon does: opening it again
+    /// sends a "reopen", so an app with every window closed (such as Notes) shows a window.
+    /// Plain activation is the fallback when the app's location is unknown.
+    private func bringForward(_ app: ResolvedApp) async throws(ExecutionError) {
+        let appName = app.identity.displayName
+        guard let bundleURL = app.bundleURL else {
+            guard let processIdentifier = app.processIdentifier else {
+                throw .appNotRunning(appName: appName)
+            }
+            try await activate(processIdentifier: processIdentifier, appName: appName)
+            return
+        }
+        try ensureArmed()
+        do {
+            _ = try await NSWorkspace.shared.openApplication(
+                at: bundleURL, configuration: NSWorkspace.OpenConfiguration())
+        } catch {
+            throw .activationFailed(appName: appName)
         }
     }
 

@@ -19,11 +19,11 @@ struct SafetyPolicyCombinationTests {
 
     @Test func planStartsWithoutApprovalOnlyWhenBothPoliciesAllowIt() {
         var cautious = base
-        cautious.autoRunsLowRiskPlans = false
+        cautious.asksOnlyBeforeDangerousSteps = false
 
-        #expect(!base.combinedStrictly(with: cautious).autoRunsLowRiskPlans)
-        #expect(!cautious.combinedStrictly(with: base).autoRunsLowRiskPlans)
-        #expect(base.combinedStrictly(with: base).autoRunsLowRiskPlans)
+        #expect(!base.combinedStrictly(with: cautious).asksOnlyBeforeDangerousSteps)
+        #expect(!cautious.combinedStrictly(with: base).asksOnlyBeforeDangerousSteps)
+        #expect(base.combinedStrictly(with: base).asksOnlyBeforeDangerousSteps)
     }
 
     @Test func unlistedAppsUseTheStricterDefault() {

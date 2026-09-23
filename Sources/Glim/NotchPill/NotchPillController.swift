@@ -43,11 +43,15 @@ final class NotchPillController {
         }
         let geometry = NotchGeometry(screen: screen)
         if panel.contentView == nil || panel.frame != geometry.frame {
-            panel.contentView = ClickThroughHostingView(
+            let hostingView = ClickThroughHostingView(
                 rootView: NotchPillHost(
                     notchSize: geometry.notchSize, mergesWithNotch: geometry.hasNotch
                 )
                 .environment(model))
+            // The orb animates every frame; if the view also sized the window, AppKit would
+            // re-run layout during layout and crash. The window has a fixed frame instead.
+            hostingView.sizingOptions = []
+            panel.contentView = hostingView
             panel.setFrame(geometry.frame, display: true)
         }
         panel.orderFrontRegardless()

@@ -687,3 +687,23 @@ Also fixed: the dashboard hid a failure to read the audit log (it showed "no tas
 says it could not read the log. Checked with a scratch renderer outside the repo.
 
 **Gates:** `All gates passed.` — 363 tests in 62 suites.
+
+## 2026-09-23 — Ask only before danger; crash, Notes and speed fixes
+
+- **Crash when the pill or panel appeared:** both crash reports showed AppKit's "too many
+  Update Constraints passes" exception thrown from `NSHostingView.updateWindowContentSizeExtrema`.
+  The orbs animate every frame, and a hosting view that sizes its window re-runs layout during
+  layout. The pill's hosting view and the control panel's hosting controller now have
+  `sizingOptions = []`; the pill window has a fixed frame and the panel a `contentMinSize`.
+  Could not be reproduced in a scratch harness; Glim stayed up after relaunch.
+- **Ask only before dangerous steps (decision C-4):** the switch (renamed from
+  `autoRunsLowRiskPlans` to `asksOnlyBeforeDangerousSteps`) now skips the plan panel entirely,
+  and `SafetyGate` keeps only reasons where `ConfirmationReason.isDangerous`. `LowRiskPlanRule`
+  was removed. Tests: gate (doubts don't ask; danger still asks; cautious gate keeps every
+  reason) and runner (Send asks at the step, no plan panel).
+- **"Notes has no open window":** opening or switching to a running app now reopens it through
+  `NSWorkspace.openApplication`, like a Dock click, so it shows a window; the step then waits up
+  to 3 s for the window. Tests: a window that appears late, and one that never does.
+- **Speed:** settle after each action 400 → 250 ms; app and window polling 250 → 100 ms.
+
+**Gates:** `All gates passed.` — 358 tests in 61 suites.

@@ -183,6 +183,6 @@ public struct SafetyGate: Sendable {
                 ? .quitApp(appName: appName) : .supervisedApp(appName: appName)
             reasons.append(tierReason)
         }
-        return reasons
+        return policy.asksOnlyBeforeDangerousSteps ? reasons.filter(\.isDangerous) : reasons
     }
 }

@@ -24,8 +24,8 @@ public enum SafetyChangeClassifier {
         loosenings += loosenedAppTiers(from: oldPolicy.appTrust, to: newPolicy.appTrust)
         loosenings += loosenedLimits(from: oldPolicy.limits, to: newPolicy.limits)
             .map { .limitLoosened($0) }
-        if newPolicy.autoRunsLowRiskPlans, !oldPolicy.autoRunsLowRiskPlans {
-            loosenings.append(.lowRiskPlansStartWithoutApproval)
+        if newPolicy.asksOnlyBeforeDangerousSteps, !oldPolicy.asksOnlyBeforeDangerousSteps {
+            loosenings.append(.asksOnlyBeforeDangerousSteps)
         }
 
         if newSettings.jev.isEnabled, !oldSettings.jev.isEnabled {

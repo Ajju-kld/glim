@@ -17,11 +17,11 @@ struct SafetyChangeClassifierTests {
 
     @Test func startingLowRiskPlansWithoutApprovalLoosens() {
         var cautious = defaults
-        cautious.safetyPolicy.autoRunsLowRiskPlans = false
+        cautious.safetyPolicy.asksOnlyBeforeDangerousSteps = false
 
         #expect(
             SafetyChangeClassifier.loosenings(from: cautious, to: defaults) == [
-                .lowRiskPlansStartWithoutApproval
+                .asksOnlyBeforeDangerousSteps
             ])
         #expect(SafetyChangeClassifier.loosenings(from: defaults, to: cautious).isEmpty)
     }

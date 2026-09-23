@@ -258,3 +258,13 @@ doesnt look good".
 **Decision:** the pill grows out of the notch with a spring, shows an animated torus-ring orb
 while listening (reacting to the voice level), springs while planning and acting, and shrinks
 back into the notch when done. The control panel gets a visual redesign.
+
+### C-4 · Ask only for dangerous things
+User said (verbatim): "can we make even faster without approving only need approval for
+dangerous things".
+**Decision:** replaces C-2. With "Ask only before dangerous steps" on (default), no plan panel
+at all; Glim asks at the step only for danger: a Confirm phrase, Return, quitting an app, or a
+supervised app (the owner's own tier choice from B-Q5). Doubts about the AI — a pick that
+differs from the plan's wording, a checker that disagrees or is offline — no longer ask; they
+are logged. Forbidden steps are still blocked. Changes B-Q3 and the checker-offline rule
+(B-Q17) while the switch is on; turning the switch off restores both.
