@@ -27,6 +27,31 @@ extension AccessibilityNode {
 struct ElementTableBuilderTests {
     let builder = ElementTableBuilder()
 
+    /// Notes lists its folders and every note before its toolbar. With more controls than the
+    /// table holds, buttons and fields come before list rows, so New Note is still offered.
+    @Test func buttonsAndFieldsAreKeptBeforeRowsWhenTheTableIsFull() {
+        let rows = (0..<ScreenReadingLimits.maximumListedElements).map { index in
+            AccessibilityNode.fixture(
+                handleIndex: 10 + index, role: "AXRow", title: "Note \(index + 1)")
+        }
+        let window = AccessibilityNode.fixture(
+            role: "AXWindow", title: "Notes",
+            children: [
+                .fixture(handleIndex: 1, role: "AXGroup", children: rows),
+                .fixture(handleIndex: 2, role: "AXButton", title: "New Note"),
+                .fixture(handleIndex: 3, role: "AXTextArea", elementDescription: "Note body"),
+            ])
+
+        let table = builder.build(from: window)
+
+        #expect(table.elements.count == ScreenReadingLimits.maximumListedElements)
+        #expect(table.wasTruncated)
+        #expect(table.elements.map(\.label).suffix(2) == ["New Note", "Note body"])
+        #expect(table.elements.map(\.number) == Array(1...table.elements.count))
+        let newNote = table.elements.first { $0.label == "New Note" }
+        #expect(newNote.flatMap { table.handleIndexByElementNumber[$0.number] } == 2)
+    }
+
     @Test func actionableLabelledControlsAreNumberedInReadingOrder() {
         let window = AccessibilityNode.fixture(
             role: "AXWindow", title: "Notes",

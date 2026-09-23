@@ -233,11 +233,33 @@ extension TaskRunner {
                 throw RunnerStop.blocked(
                     .unknownTarget(description: description), stepNumber: step.number)
             case .element(let element):
+                if let mismatch = planMismatchToRetry(element, for: step) {
+                    limiter.recordModelError()
+                    retryNote = mismatch
+                    try await audit(.modelError, mismatch)
+                    continue
+                }
                 let concerns = try await checkerConcerns(
                     for: step, goal: goal, snapshot: snapshot, chosen: element)
                 return (element, concerns)
             }
         }
+    }
+
+    /// When Glim asks only before danger, a pick that doesn't match the plan's wording is never
+    /// clicked: it goes back to the model with this note, and repeated misses block the step.
+    /// With the switch off, such a pick asks the person instead (see `SafetyGate`).
+    private func planMismatchToRetry(_ element: UIElementSnapshot, for step: ScreenedStep)
+        -> String?
+    {
+        guard currentPolicy.asksOnlyBeforeDangerousSteps,
+            let plannedTarget = step.action.targetDescription,
+            !PlanMatcher().elementMatchesPlan(targetDescription: plannedTarget, element: element)
+        else {
+            return nil
+        }
+        return
+            "“\(element.label)” doesn't match the plan's “\(plannedTarget)”. Pick the control that matches it, or report it blocked."
     }
 
     private func checkerConcerns(

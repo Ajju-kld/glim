@@ -9,16 +9,25 @@ public struct ElementTableBuilder: Sendable {
         "AXStaticText", "AXTextArea", "AXTextField", "AXHeading",
     ]
     private static let labelSearchDepth = 2
+    /// Business rule: list rows and cells give way to buttons and fields when a window has more
+    /// controls than the table holds (Notes lists every note before its toolbar).
+    private static let lowPriorityRoles: Set<String> = ["AXRow", "AXCell"]
+
+    private struct Candidate {
+        let node: AccessibilityNode
+        let label: String
+        let readingPosition: Int
+    }
 
     /// Creates a builder.
     public init() {}
 
-    /// Builds the table for `window`, walking its tree in reading order.
+    /// Builds the table for `window`, walking its tree in reading order. When there are more
+    /// controls than the table holds, buttons and fields are kept before list rows and cells;
+    /// the table stays in reading order either way.
     public func build(from window: AccessibilityNode) -> ElementTable {
-        var elements: [UIElementSnapshot] = []
-        var handleIndexByElementNumber: [Int: Int] = [:]
+        var candidates: [Candidate] = []
         var readableText = ReadableTextCollector()
-        var wasTruncated = false
         var nodesToVisit = [window]
 
         while let node = nodesToVisit.popLast() {
@@ -32,10 +41,19 @@ public struct ElementTableBuilder: Sendable {
             guard let label = Self.label(for: node) else {
                 continue
             }
-            guard elements.count < ScreenReadingLimits.maximumListedElements else {
-                wasTruncated = true
-                continue
-            }
+            candidates.append(
+                Candidate(node: node, label: label, readingPosition: candidates.count))
+        }
+
+        let limit = ScreenReadingLimits.maximumListedElements
+        let wasTruncated = candidates.count > limit
+        let keptCandidates =
+            wasTruncated ? Self.prioritized(candidates, limit: limit) : candidates
+        var elements: [UIElementSnapshot] = []
+        var handleIndexByElementNumber: [Int: Int] = [:]
+        for candidate in keptCandidates {
+            let node = candidate.node
+            let label = candidate.label
             let elementNumber = elements.count + 1
             elements.append(
                 UIElementSnapshot(
@@ -55,6 +73,20 @@ public struct ElementTableBuilder: Sendable {
             handleIndexByElementNumber: handleIndexByElementNumber,
             readableText: readableText.text,
             wasTruncated: wasTruncated)
+    }
+
+    /// Up to `limit` candidates: buttons and fields first, then rows and cells, in reading order.
+    private static func prioritized(_ candidates: [Candidate], limit: Int) -> [Candidate] {
+        let (rows, controls) = candidates.reduce(into: ([Candidate](), [Candidate]())) {
+            groups, candidate in
+            if lowPriorityRoles.contains(candidate.node.role) {
+                groups.0.append(candidate)
+            } else {
+                groups.1.append(candidate)
+            }
+        }
+        let kept = Array((controls + rows).prefix(limit))
+        return kept.sorted { $0.readingPosition < $1.readingPosition }
     }
 
     /// The label for an actionable control, or nil when the node isn't one Glim may list.

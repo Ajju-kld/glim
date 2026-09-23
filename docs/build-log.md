@@ -724,3 +724,19 @@ clicking it opens the control panel. The dashboard shows the **last crash** (tim
 type) with "Show report".
 
 **Gates:** `All gates passed.` — 358 tests in 61 suites.
+
+## 2026-09-23 — Wrong click in Notes
+
+The owner's log: plan "Click “New Note” in Notes", but Glim pressed "Notes, 125 notes" (a
+folder row), which failed with AX error -25205. Two causes, both fixed with tests first:
+
+- **The toolbar never made the table.** The walk lists controls in reading order and stops at
+  80; Notes' folders and 125 note rows came first. When a window has more controls than fit,
+  buttons and fields are now kept before rows and cells (still numbered in reading order).
+- **The mismatch got through.** With "ask only before dangerous steps" on, plan mismatches no
+  longer asked the person, so the model's wrong pick was clicked. Now a pick that doesn't match
+  the plan's wording is never clicked: it goes back to the model with a note, and repeated
+  misses block the step (the tries limit). Asking the person remains the behaviour when the
+  switch is off.
+
+**Gates:** `All gates passed.` — 360 tests in 61 suites.

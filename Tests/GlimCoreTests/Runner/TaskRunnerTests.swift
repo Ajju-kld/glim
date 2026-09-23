@@ -333,6 +333,31 @@ struct TaskRunnerTests {
         }
     }
 
+    /// Asking only before danger must not mean clicking whatever the model picked: a pick that
+    /// doesn't match the plan is sent back to the model, and never clicked.
+    @Test func pickThatDoesNotMatchThePlanIsRetriedNotClicked() async throws {
+        try await withTemporaryDirectory { directory in
+            let archivePick = #"{"elementNumber":5,"blocked":false}"#
+            let harness = makeHarness(
+                in: directory,
+                modelAnswers: [
+                    #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"Compose"}]}"#,
+                    archivePick, archivePick, archivePick,
+                ])
+
+            let outcome = await harness.run(
+                "compose", runner: harness.makeRunner(policy: ChangingPolicy(Self.dangerOnlyPolicy))
+            )
+
+            #expect(
+                outcome == .blocked(.limitReached(.tooManyTriesForStep(limit: 3)), stepNumber: 1))
+            #expect(harness.executor.performed.isEmpty)
+            #expect(harness.decisions.confirmationsShown.isEmpty)
+            #expect(
+                harness.model.requests.last?.userPrompt.contains("doesn't match the plan") == true)
+        }
+    }
+
     @Test func exactlyLabelledTargetNeedsNoPickFromTheModel() async throws {
         try await withTemporaryDirectory { directory in
             let harness = makeHarness(in: directory, modelAnswers: [Self.clickNewItemPlan])
