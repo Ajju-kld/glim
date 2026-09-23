@@ -48,7 +48,8 @@ public struct Planner: Sendable {
     ///
     /// When exactly one of them is labelled with the step's target (ignoring case, accents,
     /// width and surrounding spaces), it is chosen without asking the model: the approved plan
-    /// named it, and a model call would only add time. Otherwise the model picks.
+    /// named it, and a model call would only add time. A typing step with only one field on
+    /// screen types there, since there is nowhere else to type. Otherwise the model picks.
     ///
     /// - Parameters:
     ///   - step: The approved step.
@@ -65,6 +66,9 @@ public struct Planner: Sendable {
         let candidates = ElementRoles.candidates(in: table, for: step.kind)
         if let exactMatch = Self.onlyElementLabelled(step.targetDescription, in: candidates) {
             return .element(exactMatch)
+        }
+        if step.kind == .typeText, candidates.count == 1, let onlyField = candidates.first {
+            return .element(onlyField)
         }
         var prompt = Self.targetPrompt(for: step, goal: goal, candidates: candidates)
         if let retryNote {

@@ -2,7 +2,7 @@
 /// asks only before dangerous steps.
 public struct SafetyPolicy: Sendable, Equatable, Codable {
     private enum CodingKeys: String, CodingKey {
-        case limits, riskWords, appTrust, asksOnlyBeforeDangerousSteps
+        case limits, riskWords, appTrust, asksOnlyBeforeDangerousSteps, stopsWhenPersonTakesOver
     }
 
     /// The defaults agreed in the design. "Reset to safe defaults" restores exactly this.
@@ -14,7 +14,8 @@ public struct SafetyPolicy: Sendable, Equatable, Codable {
         appTrust: AppTrustPolicy(
             tiersByBundleIdentifier: SafetyDefaults.appTiers,
             defaultTier: .readOnly),
-        asksOnlyBeforeDangerousSteps: true)
+        asksOnlyBeforeDangerousSteps: true,
+        stopsWhenPersonTakesOver: true)
 
     /// Numeric limits for one task.
     public var limits: SafetyLimits
@@ -27,20 +28,24 @@ public struct SafetyPolicy: Sendable, Equatable, Codable {
     /// app (``ConfirmationReason/isDangerous``). Forbidden steps are still blocked. When off,
     /// every plan waits for Approve and every confirmation reason asks.
     public var asksOnlyBeforeDangerousSteps: Bool
+    /// Business rule (B-Q7, made switchable at the owner's request): touching the keyboard or
+    /// mouse while Glim acts stops the task. ⌃⌥⌘K and Stop work either way.
+    public var stopsWhenPersonTakesOver: Bool
 
     /// Creates a policy.
     public init(
         limits: SafetyLimits, riskWords: RiskWordLists, appTrust: AppTrustPolicy,
-        asksOnlyBeforeDangerousSteps: Bool
+        asksOnlyBeforeDangerousSteps: Bool, stopsWhenPersonTakesOver: Bool
     ) {
         self.limits = limits
         self.riskWords = riskWords
         self.appTrust = appTrust
         self.asksOnlyBeforeDangerousSteps = asksOnlyBeforeDangerousSteps
+        self.stopsWhenPersonTakesOver = stopsWhenPersonTakesOver
     }
 
-    /// Reads a saved policy. Settings sealed before `asksOnlyBeforeDangerousSteps` existed get
-    /// the default, so they load instead of looking damaged.
+    /// Reads a saved policy. Settings sealed before the newer switches existed get their
+    /// defaults, so they load instead of looking damaged.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         limits = try container.decode(SafetyLimits.self, forKey: .limits)
@@ -49,5 +54,8 @@ public struct SafetyPolicy: Sendable, Equatable, Codable {
         asksOnlyBeforeDangerousSteps =
             try container.decodeIfPresent(Bool.self, forKey: .asksOnlyBeforeDangerousSteps)
             ?? Self.safeDefaults.asksOnlyBeforeDangerousSteps
+        stopsWhenPersonTakesOver =
+            try container.decodeIfPresent(Bool.self, forKey: .stopsWhenPersonTakesOver)
+            ?? Self.safeDefaults.stopsWhenPersonTakesOver
     }
 }

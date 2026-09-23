@@ -27,6 +27,9 @@ public enum SafetyChangeClassifier {
         if newPolicy.asksOnlyBeforeDangerousSteps, !oldPolicy.asksOnlyBeforeDangerousSteps {
             loosenings.append(.asksOnlyBeforeDangerousSteps)
         }
+        if !newPolicy.stopsWhenPersonTakesOver, oldPolicy.stopsWhenPersonTakesOver {
+            loosenings.append(.personTakeoverIgnored)
+        }
 
         if newSettings.jev.isEnabled, !oldSettings.jev.isEnabled {
             loosenings.append(.jevEnabled)

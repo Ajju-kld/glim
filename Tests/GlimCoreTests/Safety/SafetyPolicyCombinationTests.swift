@@ -26,6 +26,14 @@ struct SafetyPolicyCombinationTests {
         #expect(base.combinedStrictly(with: base).asksOnlyBeforeDangerousSteps)
     }
 
+    @Test func takeoverStopsIfEitherPolicyWantsIt() {
+        var ignoring = base
+        ignoring.stopsWhenPersonTakesOver = false
+
+        #expect(base.combinedStrictly(with: ignoring).stopsWhenPersonTakesOver)
+        #expect(!ignoring.combinedStrictly(with: ignoring).stopsWhenPersonTakesOver)
+    }
+
     @Test func unlistedAppsUseTheStricterDefault() {
         var looser = base
         looser.appTrust.defaultTier = .fullControl

@@ -20,7 +20,7 @@ struct TaskRunnerTests {
 
     static let quickTiming = RunnerTiming(
         settleAfterAction: .zero, appLaunchTimeout: .milliseconds(50),
-        appLaunchPollInterval: .milliseconds(5), windowWaitTimeout: .milliseconds(100))
+        appLaunchPollInterval: .milliseconds(5), windowWaitTimeout: .seconds(1))
 
     /// Plans always go through the approval panel here, so each test can check it; the
     /// tests of asking only before danger turn `asksOnlyBeforeDangerousSteps` back on.
@@ -355,6 +355,50 @@ struct TaskRunnerTests {
             #expect(harness.decisions.confirmationsShown.isEmpty)
             #expect(
                 harness.model.requests.last?.userPrompt.contains("doesn't match the plan") == true)
+        }
+    }
+
+    /// Notes' note body has no name. When it is the only place on screen to type, typing
+    /// goes there without asking the model.
+    @Test func onlyFieldOnScreenTakesTheTextEvenWithoutAName() async throws {
+        try await withTemporaryDirectory { directory in
+            let untitledBody = UIElementSnapshot.fixture(
+                number: 2, role: "AXTextArea",
+                label: ElementTableBuilder.untitledLabel(for: "AXTextArea"))
+            let table = ElementTable(
+                elements: [Self.newItemButton, untitledBody],
+                handleIndexByElementNumber: [1: 1, 2: 2],
+                readableText: String(repeating: "text ", count: 60), wasTruncated: false)
+            let harness = makeHarness(
+                in: directory,
+                modelAnswers: [
+                    #"{"kind":"task","steps":[{"action":"typeText","app":"Testbed","target":"note body","text":"Apple"}]}"#
+                ],
+                table: table)
+
+            let outcome = await harness.run(
+                "write Apple",
+                runner: harness.makeRunner(policy: ChangingPolicy(Self.dangerOnlyPolicy)))
+
+            #expect(outcome == .completed)
+            #expect(harness.executor.performed.map(\.targetElement) == [untitledBody])
+            #expect(harness.model.requests.count == 1)
+        }
+    }
+
+    /// The window read after one step is fresh, so the next step in the same app reuses it
+    /// instead of walking the window again (a big window can take over a second to read).
+    @Test func nextStepReusesTheWindowReadAfterThePreviousStep() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = makeHarness(
+                in: directory,
+                modelAnswers: [
+                    #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"New Item"},{"action":"click","app":"Testbed","target":"Archive"}]}"#
+                ])
+
+            #expect(await harness.run("click new item then archive") == .completed)
+            // Planning, step 1 before and after, step 2 after: the read after step 1 serves step 2.
+            #expect(harness.screenReader.appsRead.count == 4)
         }
     }
 

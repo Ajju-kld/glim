@@ -26,6 +26,12 @@ struct SafetyChangeClassifierTests {
         #expect(SafetyChangeClassifier.loosenings(from: defaults, to: cautious).isEmpty)
     }
 
+    @Test func ignoringTheKeyboardAndMouseLoosens() {
+        let changes = loosenings { $0.safetyPolicy.stopsWhenPersonTakesOver = false }
+
+        #expect(changes == [.personTakeoverIgnored])
+    }
+
     @Test func removingAForbiddenPhraseLoosens() {
         let changes = loosenings { settings in
             settings.safetyPolicy.riskWords.forbidden.removeAll { $0 == "delete" }

@@ -148,13 +148,16 @@ public struct TaskRunner: Sendable {
             try await audit(.planApproved, "The person approved the plan.")
         }
 
-        let takeoverSupervisor = TakeoverSupervisor(monitor: dependencies.takeoverMonitor)
+        let takeoverSupervisor = TakeoverSupervisor(
+            monitor: currentPolicy.stopsWhenPersonTakesOver ? dependencies.takeoverMonitor : nil)
         takeoverSupervisor.start()
         defer { takeoverSupervisor.stop() }
         var limiter = ActionLimiter(limits: currentPolicy.limits, taskStartedAt: .now)
+        var latestScreen: ScreenSnapshot?
         for step in screenedPlan.steps {
             try await runStep(
-                step, of: screenedPlan, limiter: &limiter, takeoverSupervisor: takeoverSupervisor,
+                step, of: screenedPlan, limiter: &limiter, latestScreen: &latestScreen,
+                takeoverSupervisor: takeoverSupervisor,
                 onEvent: onEvent)
         }
         await dependencies.narrator.say("Done")

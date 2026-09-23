@@ -7,6 +7,7 @@ extension TaskRunner {
         _ step: ScreenedStep,
         of plan: ScreenedPlan,
         limiter: inout ActionLimiter,
+        latestScreen: inout ScreenSnapshot?,
         takeoverSupervisor: TakeoverSupervisor,
         onEvent: @escaping @Sendable (TaskEvent) -> Void
     ) async throws {
@@ -26,7 +27,20 @@ extension TaskRunner {
         try ensureRunsInApprovedApp(app, step: step, policy: policy)
         await dependencies.narrator.say(step.action.summary)
 
-        let snapshotBefore = Self.readsScreen(step.action) ? try await snapshot(of: app) : nil
+        // The window read right after the previous step is fresh; reading it again would only
+        // add time. The chosen control is still re-checked on screen right before acting.
+        let reusableScreen = latestScreen.flatMap { screen in
+            screen.app.processIdentifier == app.processIdentifier ? screen : nil
+        }
+        latestScreen = nil
+        var snapshotBefore: ScreenSnapshot?
+        if Self.readsScreen(step.action) {
+            if let reusableScreen {
+                snapshotBefore = reusableScreen
+            } else {
+                snapshotBefore = try await snapshot(of: app)
+            }
+        }
         var target: UIElementSnapshot?
         var checkerConcerns: [ConfirmationReason] = []
         if step.action.kind.needsTargetElement, let snapshotBefore {
@@ -75,7 +89,9 @@ extension TaskRunner {
             try await waitForAppToLaunch(named: appName)
         }
         try await pause(for: timing.settleAfterAction)
-        let changedScreen = try await screenChanged(after: step, in: app, before: snapshotBefore)
+        let (changedScreen, screenAfter) = try await screenChanged(
+            after: step, in: app, before: snapshotBefore)
+        latestScreen = screenAfter
         limiter.recordAction(at: .now, changedScreen: changedScreen)
         limiter.beginNextStep()
     }
@@ -233,7 +249,7 @@ extension TaskRunner {
                 throw RunnerStop.blocked(
                     .unknownTarget(description: description), stepNumber: step.number)
             case .element(let element):
-                if let mismatch = planMismatchToRetry(element, for: step) {
+                if let mismatch = planMismatchToRetry(element, for: step, in: snapshot) {
                     limiter.recordModelError()
                     retryNote = mismatch
                     try await audit(.modelError, mismatch)
@@ -249,10 +265,13 @@ extension TaskRunner {
     /// When Glim asks only before danger, a pick that doesn't match the plan's wording is never
     /// clicked: it goes back to the model with this note, and repeated misses block the step.
     /// With the switch off, such a pick asks the person instead (see `SafetyGate`).
-    private func planMismatchToRetry(_ element: UIElementSnapshot, for step: ScreenedStep)
-        -> String?
-    {
-        guard currentPolicy.asksOnlyBeforeDangerousSteps,
+    private func planMismatchToRetry(
+        _ element: UIElementSnapshot, for step: ScreenedStep, in snapshot: ScreenSnapshot
+    ) -> String? {
+        let isOnlyFieldToTypeInto =
+            step.action.kind == .typeText
+            && ElementRoles.candidates(in: snapshot.table.elements, for: .typeText).count == 1
+        guard currentPolicy.asksOnlyBeforeDangerousSteps, !isOnlyFieldToTypeInto,
             let plannedTarget = step.action.targetDescription,
             !PlanMatcher().elementMatchesPlan(targetDescription: plannedTarget, element: element)
         else {
@@ -328,25 +347,30 @@ extension TaskRunner {
     /// arrangements report their own success; in-app actions compare the window before and after.
     /// Glim never repeats an action automatically (a repeated click could send twice); unchanged
     /// steps count toward the no-change limit instead.
+    ///
+    /// - Returns: Whether the screen changed, and the window as read afterwards, which the next
+    ///   step in the same app reuses.
     private func screenChanged(
         after step: ScreenedStep, in app: ResolvedApp, before: ScreenSnapshot?
-    ) async throws -> Bool {
+    ) async throws -> (changed: Bool, screenAfter: ScreenSnapshot?) {
         let appName = app.identity.displayName
         switch step.action.kind {
         case .openApp, .switchApp:
-            return dependencies.appResolver.frontmostApp()?.identity.bundleIdentifier
+            let isFront =
+                dependencies.appResolver.frontmostApp()?.identity.bundleIdentifier
                 == app.identity.bundleIdentifier
+            return (isFront, nil)
         case .quitApp:
-            return dependencies.appResolver.resolveRunning(appNamed: appName) == nil
+            return (dependencies.appResolver.resolveRunning(appNamed: appName) == nil, nil)
         case .moveWindow, .minimizeWindow, .restoreWindow, .speak:
-            return true
+            return (true, nil)
         case .click, .typeText, .pressKey, .scroll:
             break
         }
         guard let before,
             let runningApp = dependencies.appResolver.resolveRunning(appNamed: appName)
         else {
-            return true
+            return (true, nil)
         }
         let after: ScreenSnapshot
         do {
@@ -355,14 +379,14 @@ extension TaskRunner {
             try await audit(
                 .screenReadFailed, "Could not re-read \(appName) after acting: \(error.explanation)"
             )
-            return false
+            return (false, nil)
         }
         if let typedText = step.action.approvedText,
             after.table.elements.contains(where: { $0.value?.contains(typedText) == true })
         {
-            return true
+            return (true, after)
         }
-        return after.table != before.table || after.windowTitle != before.windowTitle
+        return (after.table != before.table || after.windowTitle != before.windowTitle, after)
     }
 
     private static func key(of action: StepAction) -> AllowedKey? {

@@ -14,6 +14,7 @@ struct PlannerTests {
 
     let newNoteButton = UIElementSnapshot.fixture(number: 1, label: "New Note")
     let noteBody = UIElementSnapshot.fixture(number: 2, role: "AXTextArea", label: "Note body")
+    let noteTitle = UIElementSnapshot.fixture(number: 3, role: "AXTextField", label: "Title")
 
     // MARK: - Plans
 
@@ -196,7 +197,7 @@ struct PlannerTests {
 
         let choice = try await Planner(languageModel: model).pickTarget(
             for: .typeText(appName: "Notes", target: "New Note", text: "hi"), goal: context.goal,
-            among: [newNoteButton, noteBody])
+            among: [newNoteButton, noteBody, noteTitle])
 
         #expect(choice == .element(noteBody))
         #expect(model.requests.count == 1)
@@ -218,7 +219,7 @@ struct PlannerTests {
         await #expect(throws: PlannerError.elementNumberNotInTable(1)) {
             _ = try await Planner(languageModel: model).pickTarget(
                 for: .typeText(appName: "Notes", target: "body", text: "hi"), goal: context.goal,
-                among: [newNoteButton, noteBody])
+                among: [newNoteButton, noteBody, noteTitle])
         }
     }
 
@@ -238,7 +239,7 @@ struct PlannerTests {
 
         _ = try await Planner(languageModel: model).pickTarget(
             for: .typeText(appName: "Notes", target: "body", text: "hi"), goal: context.goal,
-            among: [newNoteButton, noteBody])
+            among: [newNoteButton, noteBody, noteTitle])
 
         let prompt = try #require(model.requests.first?.userPrompt)
         #expect(prompt.contains("[2] Note body (TextArea)"))

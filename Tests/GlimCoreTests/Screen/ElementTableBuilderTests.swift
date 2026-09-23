@@ -27,6 +27,24 @@ extension AccessibilityNode {
 struct ElementTableBuilderTests {
     let builder = ElementTableBuilder()
 
+    @Test func unnamedTextAreaIsListedAsUntitled() {
+        let window = AccessibilityNode.fixture(
+            role: "AXWindow", title: "Notes",
+            children: [.fixture(handleIndex: 1, role: "AXTextArea")])
+
+        let table = builder.build(from: window)
+
+        #expect(table.elements.map(\.label) == ["Untitled text area"])
+    }
+
+    @Test func unnamedButtonIsStillLeftOut() {
+        let window = AccessibilityNode.fixture(
+            role: "AXWindow", title: "Notes", children: [.fixture(handleIndex: 1, role: "AXButton")]
+        )
+
+        #expect(builder.build(from: window).elements.isEmpty)
+    }
+
     /// Notes lists its folders and every note before its toolbar. With more controls than the
     /// table holds, buttons and fields come before list rows, so New Note is still offered.
     @Test func buttonsAndFieldsAreKeptBeforeRowsWhenTheTableIsFull() {

@@ -95,6 +95,40 @@ struct TaskRunnerLifecycleTests {
         }
     }
 
+    @Test func touchingTheMouseIsIgnoredWhenTakeoverStopIsOff() async throws {
+        try await withTemporaryDirectory { directory in
+            let killSwitch = KillSwitch()
+            let inputClock = ScriptedInputClock()
+            let monitor = TakeoverMonitor(
+                killSwitch: killSwitch, inputClock: inputClock,
+                timing: TakeoverMonitor.Timing(
+                    settleDelay: .zero, pollInterval: .milliseconds(5), graceSeconds: 0.001))
+            let executor = RecordingExecutor {
+                inputClock.simulateHumanInput()
+                try? await Task.sleep(for: .milliseconds(40))
+            }
+            var policy = TaskRunnerTests.testPolicy
+            policy.stopsWhenPersonTakesOver = false
+            let harness = TaskRunnerTests.Harness(
+                killSwitch: killSwitch,
+                model: FakeLanguageModel(answers: [
+                    .success(
+                        #"{"kind":"task","steps":[{"action":"moveWindow","app":"Testbed","preset":"leftHalf"},{"action":"moveWindow","app":"Testbed","preset":"rightHalf"}]}"#
+                    )
+                ]),
+                screenReader: ScriptedScreenReader(table: Base.testbedTable), executor: executor,
+                decisions: ScriptedDecisions(), auditLog: AuditLog(directory: directory))
+            let outcome = await harness.run(
+                "left then right",
+                runner: harness.makeRunner(policy: ChangingPolicy(policy), takeoverMonitor: monitor)
+            )
+
+            #expect(outcome == .completed)
+            #expect(executor.performed.count == 2)
+            #expect(killSwitch.isArmed)
+        }
+    }
+
     @Test func switchingThatDoesNotBringTheAppForwardCountsAsNoChange() async throws {
         try await withTemporaryDirectory { directory in
             let switchStep = #"{"action":"switchApp","app":"Messages"}"#

@@ -10,6 +10,7 @@ public enum SettingsLoosening: Sendable, Equatable {
     case jevExclusionRemoved(bundleIdentifier: String)
     case plannerModelChanged(from: String, to: String)
     case asksOnlyBeforeDangerousSteps
+    case personTakeoverIgnored
 
     /// One phrase for the Touch ID prompt and the audit log.
     public var explanation: String {
@@ -32,6 +33,8 @@ public enum SettingsLoosening: Sendable, Equatable {
             "switch the AI model from \(previousModel) to \(newModel)"
         case .asksOnlyBeforeDangerousSteps:
             "ask only before dangerous steps"
+        case .personTakeoverIgnored:
+            "keep going when you touch the keyboard or mouse"
         }
     }
 }

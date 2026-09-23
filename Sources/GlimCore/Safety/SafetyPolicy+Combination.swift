@@ -1,6 +1,7 @@
 extension SafetyPolicy {
     /// The stricter of two policies, rule by rule: the lower tier for every app, every phrase from
-    /// both lists, the tighter value of every limit, and auto-run only if both allow it.
+    /// both lists, the tighter value of every limit, asking only before danger only if both allow
+    /// it, and stopping on takeover if either wants it.
     ///
     /// A running task combines the policy it started with and the current one, so a tightening
     /// applies at once while a loosening can't reach a task that is already running.
@@ -12,7 +13,8 @@ extension SafetyPolicy {
                 confirm: Self.union(riskWords.confirm, other.riskWords.confirm)),
             appTrust: appTrust.combinedStrictly(with: other.appTrust),
             asksOnlyBeforeDangerousSteps: asksOnlyBeforeDangerousSteps
-                && other.asksOnlyBeforeDangerousSteps)
+                && other.asksOnlyBeforeDangerousSteps,
+            stopsWhenPersonTakesOver: stopsWhenPersonTakesOver || other.stopsWhenPersonTakesOver)
     }
 
     /// Phrases from both lists, in order, without repeating a phrase that normalizes the same.

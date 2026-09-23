@@ -26,6 +26,18 @@ struct SafetyRulesPage: View {
                     }
                 }
                 .toggleStyle(.switch)
+                Divider().opacity(0.4)
+                Toggle(isOn: takeoverBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Stop when I touch the keyboard or mouse")
+                        Text(
+                            "On: any typing or mouse movement while Glim acts hands control back to you. Off: Glim keeps going; ⌃⌥⌘K and Stop still stop it."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
             }
             HStack(alignment: .top, spacing: 16) {
                 phraseCard(
@@ -65,6 +77,15 @@ struct SafetyRulesPage: View {
                 }
             }
         }
+    }
+
+    /// Turning this off needs Touch ID; if the prompt is cancelled the switch springs back.
+    private var takeoverBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.safetyPolicy.stopsWhenPersonTakesOver },
+            set: { newValue in
+                model.changeSettings { $0.safetyPolicy.stopsWhenPersonTakesOver = newValue }
+            })
     }
 
     /// Turning this on needs Touch ID; if the prompt is cancelled the switch springs back.

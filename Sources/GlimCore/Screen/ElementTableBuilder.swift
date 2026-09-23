@@ -89,6 +89,17 @@ public struct ElementTableBuilder: Sendable {
         return kept.sorted { $0.readingPosition < $1.readingPosition }
     }
 
+    /// The label given to a text field or area that has no name of its own, such as Notes'
+    /// note body. It names the kind of field, never its contents.
+    public static func untitledLabel(for role: String) -> String {
+        switch role {
+        case "AXTextArea": "Untitled text area"
+        case "AXTextField": "Untitled text field"
+        case "AXComboBox": "Untitled combo box"
+        default: "Untitled field"
+        }
+    }
+
     /// The label for an actionable control, or nil when the node isn't one Glim may list.
     static func label(for node: AccessibilityNode) -> String? {
         let isClickable = ElementRoles.clickableRoles.contains(node.role)
@@ -104,7 +115,8 @@ public struct ElementTableBuilder: Sendable {
             return ownLabel
         }
         return isClickable
-            ? firstStaticText(in: node.children, remainingDepth: labelSearchDepth) : nil
+            ? firstStaticText(in: node.children, remainingDepth: labelSearchDepth)
+            : untitledLabel(for: node.role)
     }
 
     /// Buttons drawn by some frameworks carry their text in a child static text.
