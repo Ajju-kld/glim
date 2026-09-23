@@ -23,7 +23,7 @@ struct PermissionsPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            GlassCard(title: "Permissions", systemImage: "lock.shield") {
+            GlassCard(title: "Permissions", systemImage: "lock.shield", tint: .blue) {
                 ForEach(permissions) { permission in
                     HStack(spacing: 12) {
                         Image(

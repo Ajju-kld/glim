@@ -14,7 +14,7 @@ struct SafetyRulesPage: View {
                 "Removing a phrase or raising a limit makes Glim less safe, so it needs Touch ID. Adding phrases or tightening limits applies right away — even to a task that is running."
             )
             .foregroundStyle(.secondary)
-            GlassCard(title: "Approvals", systemImage: "checkmark.shield") {
+            GlassCard(title: "Approvals", systemImage: "checkmark.shield", tint: .green) {
                 Toggle(isOn: autoRunBinding) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Start low-risk plans without asking")
@@ -35,7 +35,7 @@ struct SafetyRulesPage: View {
                     title: "Confirm — asks you", systemImage: "hand.raised", tint: .orange,
                     phrases: \.safetyPolicy.riskWords.confirm, newPhrase: $newConfirmPhrase)
             }
-            GlassCard(title: "Limits", systemImage: "gauge.with.needle") {
+            GlassCard(title: "Limits", systemImage: "gauge.with.needle", tint: .purple) {
                 limitStepper("Actions per task", value: \.maximumActionsPerTask, range: 1...100)
                 limitStepper("Tries per step", value: \.maximumTriesPerStep, range: 1...10)
                 limitStepper(
@@ -83,7 +83,7 @@ struct SafetyRulesPage: View {
         phrases phrasesKeyPath: WritableKeyPath<GlimSettings, [String]>,
         newPhrase: Binding<String>
     ) -> some View {
-        GlassCard(title: title, systemImage: systemImage) {
+        GlassCard(title: title, systemImage: systemImage, tint: tint) {
             ForEach(model.settings[keyPath: phrasesKeyPath], id: \.self) { phrase in
                 HStack {
                     Text(phrase)

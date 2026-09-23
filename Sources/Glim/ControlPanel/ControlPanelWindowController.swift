@@ -28,6 +28,9 @@ final class ControlPanelWindowController {
         newWindow.styleMask = [
             .titled, .closable, .miniaturizable, .resizable, .fullSizeContentView,
         ]
+        newWindow.titlebarAppearsTransparent = true
+        newWindow.titleVisibility = .hidden
+        newWindow.appearance = NSAppearance(named: .darkAqua)
         newWindow.setContentSize(Self.defaultSize)
         newWindow.isReleasedWhenClosed = false
         newWindow.setFrameAutosaveName(Self.autosaveName)

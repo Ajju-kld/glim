@@ -41,7 +41,7 @@ struct ActivityLogPage: View {
                 }
             }
             .padding(12)
-            .glassEffect(.regular, in: .rect(cornerRadius: 16))
+            .panelSurface(cornerRadius: 16)
         }
         .task { await load() }
         .confirmationDialog("Delete the whole activity log?", isPresented: $isConfirmingClear) {

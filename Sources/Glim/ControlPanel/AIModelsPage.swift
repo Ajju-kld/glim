@@ -13,7 +13,7 @@ struct AIModelsPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            GlassCard(title: "Planner — Ollama on this Mac", systemImage: "cpu") {
+            GlassCard(title: "Planner — Ollama on this Mac", systemImage: "cpu", tint: .indigo) {
                 StatusRow(
                     name: "Status", detail: ollamaStatus.detail, isHealthy: ollamaStatus.isHealthy)
                 HStack {
@@ -30,13 +30,13 @@ struct AIModelsPage: View {
                     }
                 }
                 Text(
-                    "Needs a recent Ollama: `brew upgrade ollama`, then `ollama pull \(GlimSettings.defaultPlannerModelName)`. If steps feel slow, try `qwen3-vl:4b`."
+                    "Needs a recent Ollama: `brew upgrade ollama`, then `ollama pull \(GlimSettings.defaultPlannerModelName)`. The model stays loaded for 30 minutes after each request, so answers stay quick."
                 )
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
             }
-            GlassCard(title: "Laya checker — local", systemImage: "checkmark.shield") {
+            GlassCard(title: "Laya checker — local", systemImage: "checkmark.shield", tint: .teal) {
                 StatusRow(
                     name: "Status", detail: layaStatus.detail, isHealthy: layaStatus.isHealthy)
                 Text(
@@ -46,7 +46,7 @@ struct AIModelsPage: View {
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
             }
-            GlassCard(title: "Jev checker — TypeSafe cloud", systemImage: "cloud") {
+            GlassCard(title: "Jev checker — TypeSafe cloud", systemImage: "cloud", tint: .orange) {
                 Toggle(
                     "Use Jev as an extra checker",
                     isOn: Binding(

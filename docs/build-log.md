@@ -667,3 +667,23 @@ processing, and a shrink when done (decision C-3).
   rolling rings, and the glow thinned so the hole stays dark.
 
 **Gates:** `All gates passed.` — 363 tests in 62 suites.
+
+## 2026-09-23 — Control panel redesign
+
+The owner said the control panel didn't look good (decision C-3). The stock split view with
+glass cards on a flat background was replaced by:
+
+- a **dark indigo backdrop** with two soft glows in Glim's colors;
+- a **custom sidebar**: the live torus orb and "Glim · Armed/Stopped" as the brand, icon-badge
+  rows with hover and selection, and a red **Stop ⌃⌥⌘K** capsule always at the bottom;
+- a **page header** (large title and one line) on every page;
+- **cards** as translucent surfaces with a light top edge and a tinted icon badge (red for
+  Forbidden, orange for Confirm, green for Approvals…). Liquid Glass stays on buttons: behind
+  text, glass picked dark text on the dark backdrop, which is unreadable;
+- a **dashboard** with a hero (large orb, "Ready when you are" or the stop reason and
+  Re-arm), "Try saying" chips, a grid of health tiles, and today's tasks with ✓/✗.
+
+Also fixed: the dashboard hid a failure to read the audit log (it showed "no tasks"); it now
+says it could not read the log. Checked with a scratch renderer outside the repo.
+
+**Gates:** `All gates passed.` — 363 tests in 62 suites.

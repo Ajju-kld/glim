@@ -20,6 +20,17 @@ enum ControlPanelPage: String, CaseIterable, Identifiable {
         }
     }
 
+    var subtitle: String {
+        switch self {
+        case .dashboard: "Status, health and today's tasks at a glance."
+        case .appsTrust: "Decide how much Glim may do in each app."
+        case .safetyRules: "Words that block or ask, limits, and approvals."
+        case .aiModels: "The planner on this Mac and its second opinions."
+        case .permissions: "What macOS lets Glim use. Glim never changes these itself."
+        case .activityLog: "Everything Glim heard, planned, checked and did."
+        }
+    }
+
     var systemImage: String {
         switch self {
         case .dashboard: "gauge.with.dots.needle.67percent"

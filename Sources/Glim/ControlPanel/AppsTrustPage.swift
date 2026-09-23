@@ -64,7 +64,7 @@ struct AppsTrustPage: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 320, alignment: .topLeading)
-        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        .panelSurface(cornerRadius: 16)
         .dropDestination(for: String.self) { bundleIdentifiers, _ in
             for bundleIdentifier in bundleIdentifiers {
                 move(bundleIdentifier, to: tier)
