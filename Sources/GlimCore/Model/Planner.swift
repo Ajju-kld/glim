@@ -28,7 +28,7 @@ public struct Planner: Sendable {
             LanguageModelRequest(
                 systemPrompt: PlannerPrompts.planning,
                 userPrompt: Self.planningPrompt(for: context),
-                responseSchema: PlannerSchemas.plan))
+                responseSchema: PlannerSchemas.plan(limits: context.limits)))
         let answer = try decode(PlanAnswer.self, from: answerText)
         switch answer.kind {
         case "question":
@@ -44,7 +44,11 @@ public struct Planner: Sendable {
         }
     }
 
-    /// Asks which element performs `step`, offering only elements the step can target.
+    /// Finds the element that performs `step`, offering only elements the step can target.
+    ///
+    /// When exactly one of them is labelled with the step's target (ignoring case, accents,
+    /// width and surrounding spaces), it is chosen without asking the model: the approved plan
+    /// named it, and a model call would only add time. Otherwise the model picks.
     ///
     /// - Parameters:
     ///   - step: The approved step.
@@ -59,6 +63,9 @@ public struct Planner: Sendable {
         retryNote: String? = nil
     ) async throws(PlannerError) -> TargetChoice {
         let candidates = ElementRoles.candidates(in: table, for: step.kind)
+        if let exactMatch = Self.onlyElementLabelled(step.targetDescription, in: candidates) {
+            return .element(exactMatch)
+        }
         var prompt = Self.targetPrompt(for: step, goal: goal, candidates: candidates)
         if let retryNote {
             prompt += "\nYour previous answer was rejected: \(retryNote)"
@@ -96,18 +103,35 @@ public struct Planner: Sendable {
         return try decode(QuestionAnswer.self, from: answerText).answer
     }
 
+    private static func onlyElementLabelled(
+        _ targetDescription: String?, in candidates: [UIElementSnapshot]
+    ) -> UIElementSnapshot? {
+        guard let targetDescription else {
+            return nil
+        }
+        let wantedLabel = targetDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let matches = candidates.filter { element in
+            element.label.trimmingCharacters(in: .whitespacesAndNewlines).compare(
+                wantedLabel, options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]
+            ) == .orderedSame
+        }
+        return matches.count == 1 ? matches.first : nil
+    }
+
     // MARK: - Prompts
 
+    /// The lists that rarely change come first and the request comes last, so Ollama can reuse
+    /// its cached reading of the prompt's start instead of reading every line again.
     static func planningPrompt(for context: PlanningContext) -> String {
         let controlLines = context.elementLabels.map { "- \($0)" }.joined(separator: "\n")
         return """
-            Request: \(context.goal)
+            Installed apps: \(context.installedAppNames.joined(separator: ", "))
+            Running apps: \(context.runningAppNames.joined(separator: ", "))
             Front app: \(context.frontAppName ?? "none")
             Window title: \(context.windowTitle ?? "none")
             Controls in the front window:
             \(controlLines.isEmpty ? "(none)" : controlLines)
-            Installed apps: \(context.installedAppNames.joined(separator: ", "))
-            Running apps: \(context.runningAppNames.joined(separator: ", "))
+            Request: \(context.goal)
             """
     }
 

@@ -9,33 +9,11 @@ public struct OllamaClient: LanguageModel {
     /// Tunable: the longest answer the model may write — a 20-step plan fits well inside it,
     /// and a runaway generation stops instead of hanging the task.
     public static let maximumAnswerTokens = 1_024
+    /// Tunable: how long Ollama keeps the model in memory after a request. Loading it again
+    /// takes 10+ seconds on a busy Mac, which is most of a slow first answer.
+    public static let keepModelLoadedFor = "30m"
     private static let notFoundStatusCode = 404
     private static let successStatusCodes = 200..<300
-
-    private struct ChatRequest: Encodable {
-        let model: String
-        let stream: Bool
-        let think: Bool
-        let format: JSONValue
-        let messages: [ChatMessage]
-        let options: ChatOptions
-    }
-
-    private struct ChatMessage: Encodable {
-        let role: String
-        let content: String
-        let images: [String]?
-    }
-
-    private struct ChatOptions: Encodable {
-        enum CodingKeys: String, CodingKey {
-            case temperature
-            case maximumAnswerTokens = "num_predict"
-        }
-
-        let temperature: Double
-        let maximumAnswerTokens: Int
-    }
 
     private struct ChatResponse: Decodable {
         struct Message: Decodable {
@@ -66,32 +44,44 @@ public struct OllamaClient: LanguageModel {
     }
 
     /// Sends a chat request constrained to the request's JSON schema and returns the answer.
+    ///
+    /// The body is written with ``JSONValue/jsonData()`` so the schema's field order reaches
+    /// Ollama intact; the model generates fields in that order.
     public func respond(to request: LanguageModelRequest) async throws(LanguageModelError) -> String
     {
-        let userImages = request.imagesPNG.map { $0.base64EncodedString() }
-        let chatRequest = ChatRequest(
-            model: modelName,
-            stream: false,
-            think: false,
-            format: request.responseSchema,
-            messages: [
-                ChatMessage(role: "system", content: request.systemPrompt, images: nil),
-                ChatMessage(
-                    role: "user", content: request.userPrompt,
-                    images: userImages.isEmpty ? nil : userImages),
-            ],
-            options: ChatOptions(
-                temperature: Self.planningTemperature, maximumAnswerTokens: Self.maximumAnswerTokens
-            ))
-        let body: Data
-        do {
-            body = try JSONEncoder().encode(chatRequest)
-        } catch {
-            throw .malformedResponse(
-                reason: "Could not encode the request: \(error.localizedDescription)")
+        var userMessage: JSONValue = ["role": "user", "content": .string(request.userPrompt)]
+        if !request.imagesPNG.isEmpty {
+            userMessage = userMessage.setting(
+                "images", to: .array(request.imagesPNG.map { .string($0.base64EncodedString()) }))
         }
-        let data = try await send(path: "/api/chat", method: "POST", body: body)
+        let chatRequest: JSONValue = [
+            "model": .string(modelName),
+            "stream": false,
+            "think": false,
+            "keep_alive": .string(Self.keepModelLoadedFor),
+            "format": request.responseSchema,
+            "messages": [
+                ["role": "system", "content": .string(request.systemPrompt)],
+                userMessage,
+            ],
+            "options": [
+                "temperature": .number(Self.planningTemperature),
+                "num_predict": .integer(Self.maximumAnswerTokens),
+            ],
+        ]
+        let data = try await send(path: "/api/chat", method: "POST", body: try encoded(chatRequest))
         return try Self.answer(in: decode(ChatResponse.self, from: data).message)
+    }
+
+    /// Loads the model into memory without generating anything, so the next request doesn't
+    /// wait for it to load. A chat with no messages is Ollama's way to do that.
+    public func loadModel() async throws(LanguageModelError) {
+        let loadRequest: JSONValue = [
+            "model": .string(modelName),
+            "messages": [],
+            "keep_alive": .string(Self.keepModelLoadedFor),
+        ]
+        _ = try await send(path: "/api/chat", method: "POST", body: try encoded(loadRequest))
     }
 
     /// The answer text. Thinking models such as `qwen3-vl` can put their schema-constrained
@@ -135,8 +125,13 @@ public struct OllamaClient: LanguageModel {
         do {
             (data, response) = try await transport.send(urlRequest)
         } catch let urlError as URLError {
-            throw urlError.code == .timedOut
-                ? .timedOut : .serverUnreachable(reason: urlError.localizedDescription)
+            switch urlError.code {
+            case .timedOut: throw .timedOut
+            case .cancelled: throw .cancelled
+            default: throw .serverUnreachable(reason: urlError.localizedDescription)
+            }
+        } catch is CancellationError {
+            throw .cancelled
         } catch let policyError as NetworkPolicyError {
             throw .blockedByNetworkPolicy(policyError)
         } catch {
@@ -158,6 +153,15 @@ public struct OllamaClient: LanguageModel {
             return try JSONDecoder().decode(ErrorResponse.self, from: data).error
         } catch {
             return String(decoding: data, as: UTF8.self)
+        }
+    }
+
+    private func encoded(_ request: JSONValue) throws(LanguageModelError) -> Data {
+        do {
+            return try request.jsonData()
+        } catch {
+            throw .malformedResponse(
+                reason: "Could not encode the request: \(error.localizedDescription)")
         }
     }
 

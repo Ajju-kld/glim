@@ -70,6 +70,7 @@ final class AppModel {
         startWatchdog()
         registerPushToTalk()
         await loadSettings()
+        preloadPlannerModel()
     }
 
     private func watchKillSwitch() {
@@ -137,6 +138,7 @@ final class AppModel {
         guard !isListening else { return }
         isListening = true
         narrator.stopSpeaking()
+        preloadPlannerModel()
         let showsTranscript = !isTaskRunning
         listeningTask = Task { [services] in
             do throws(VoiceInputError) {
@@ -185,6 +187,24 @@ final class AppModel {
             return
         }
         startTask(transcript: transcript)
+    }
+
+    /// Loads the planner model while the person is still talking. A model Ollama has unloaded
+    /// takes 10+ seconds to load, which would otherwise all be spent after they finish.
+    private func preloadPlannerModel() {
+        let client = OllamaClient(
+            transport: PolicyEnforcingTransport(
+                base: services.transport, policy: NetworkPolicy(isJevEnabled: false)),
+            modelName: settings.plannerModelName)
+        Task {
+            do throws(LanguageModelError) {
+                try await client.loadModel()
+            } catch {
+                // Planning reports the same problem to the person with its fix.
+                Self.logger.error(
+                    "Could not preload the planner model: \(error.explanation, privacy: .public)")
+            }
+        }
     }
 
     // MARK: - Tasks

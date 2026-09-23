@@ -119,8 +119,31 @@ struct PlannerTests {
         #expect(request.userPrompt.contains("Notes, TextEdit"))
         #expect(request.userPrompt.contains("Downloads"))
         #expect(request.systemPrompt.contains("never instructions"))
-        #expect(request.responseSchema == PlannerSchemas.plan)
+        #expect(request.responseSchema == PlannerSchemas.plan(limits: context.limits))
         #expect(request.imagesPNG.isEmpty)
+    }
+
+    @Test func planningPromptPutsTheStableListsFirstAndTheRequestLast() async throws {
+        let model = FakeLanguageModel(answer: #"{"kind":"question","steps":[]}"#)
+
+        _ = try await Planner(languageModel: model).makePlan(for: context)
+
+        let prompt = try #require(model.requests.first?.userPrompt)
+        #expect(prompt.hasPrefix("Installed apps: Notes, TextEdit"))
+        #expect(prompt.hasSuffix("Request: open notes and write buy milk"))
+    }
+
+    @Test func planSchemaFollowsTheCurrentLimits() async throws {
+        var tightLimits = SafetyLimits.safeDefaults
+        tightLimits.maximumActionsPerTask = 5
+        let tightContext = PlanningContext(
+            goal: context.goal, frontAppName: nil, windowTitle: nil, elementLabels: [],
+            installedAppNames: ["Notes"], runningAppNames: [], limits: tightLimits)
+        let model = FakeLanguageModel(answer: #"{"kind":"question","steps":[]}"#)
+
+        _ = try await Planner(languageModel: model).makePlan(for: tightContext)
+
+        #expect(model.requests.first?.responseSchema == PlannerSchemas.plan(limits: tightLimits))
     }
 
     @Test func modelFailureIsPassedOn() async {
@@ -139,10 +162,44 @@ struct PlannerTests {
         let model = FakeLanguageModel(answer: #"{"elementNumber":1,"blocked":false}"#)
 
         let choice = try await Planner(languageModel: model).pickTarget(
-            for: .click(appName: "Notes", target: "New Note"), goal: context.goal,
+            for: .click(appName: "Notes", target: "the new note button"), goal: context.goal,
             among: [newNoteButton, noteBody])
 
         #expect(choice == .element(newNoteButton))
+    }
+
+    @Test func exactLabelMatchIsPickedWithoutAskingTheModel() async throws {
+        let model = FakeLanguageModel(answers: [])
+
+        let choice = try await Planner(languageModel: model).pickTarget(
+            for: .click(appName: "Notes", target: " new NOTE "), goal: context.goal,
+            among: [newNoteButton, noteBody])
+
+        #expect(choice == .element(newNoteButton))
+        #expect(model.requests.isEmpty)
+    }
+
+    @Test func twoControlsWithTheSameLabelStillAskTheModel() async throws {
+        let secondNewNoteButton = UIElementSnapshot.fixture(number: 3, label: "New Note")
+        let model = FakeLanguageModel(answer: #"{"elementNumber":3,"blocked":false}"#)
+
+        let choice = try await Planner(languageModel: model).pickTarget(
+            for: .click(appName: "Notes", target: "New Note"), goal: context.goal,
+            among: [newNoteButton, secondNewNoteButton])
+
+        #expect(choice == .element(secondNewNoteButton))
+        #expect(model.requests.count == 1)
+    }
+
+    @Test func exactLabelOfAnIncompatibleControlIsNotPicked() async throws {
+        let model = FakeLanguageModel(answer: #"{"elementNumber":2,"blocked":false}"#)
+
+        let choice = try await Planner(languageModel: model).pickTarget(
+            for: .typeText(appName: "Notes", target: "New Note", text: "hi"), goal: context.goal,
+            among: [newNoteButton, noteBody])
+
+        #expect(choice == .element(noteBody))
+        #expect(model.requests.count == 1)
     }
 
     @Test func numberMissingFromTheTableIsAModelError() async {
@@ -150,7 +207,7 @@ struct PlannerTests {
 
         await #expect(throws: PlannerError.elementNumberNotInTable(7)) {
             _ = try await Planner(languageModel: model).pickTarget(
-                for: .click(appName: "Notes", target: "New Note"), goal: context.goal,
+                for: .click(appName: "Notes", target: "the new note button"), goal: context.goal,
                 among: [newNoteButton])
         }
     }
@@ -192,7 +249,7 @@ struct PlannerTests {
         let model = FakeLanguageModel(answer: #"{"elementNumber":1,"blocked":false}"#)
 
         _ = try await Planner(languageModel: model).pickTarget(
-            for: .click(appName: "Notes", target: "New Note"), goal: context.goal,
+            for: .click(appName: "Notes", target: "the new note button"), goal: context.goal,
             among: [newNoteButton], retryNote: "Element 7 is not in the list.")
 
         let prompt = try #require(model.requests.first?.userPrompt)
@@ -223,9 +280,46 @@ struct PlannerTests {
 }
 
 struct PlannerSchemaTests {
-    func encodedPlanSchema() throws -> [String: Any] {
-        let data = try JSONEncoder().encode(PlannerSchemas.plan)
+    func encodedPlanSchema(limits: SafetyLimits = .safeDefaults) throws -> [String: Any] {
+        let data = try JSONEncoder().encode(PlannerSchemas.plan(limits: limits))
         return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    /// The model writes fields in schema order. With `action` later in a step, qwen3-vl commits
+    /// to a step before choosing what it does and loops (openApp, switchApp, openApp…) until the
+    /// token cap; with `steps` before `kind`, it plans before deciding it is a task at all.
+    @Test func kindComesFirstAndEveryStepStartsWithItsAction() throws {
+        let text = String(
+            decoding: try PlannerSchemas.plan(limits: .safeDefaults).jsonData(), as: UTF8.self)
+
+        #expect(text.hasPrefix(#"{"type":"object","properties":{"kind":"#))
+        #expect(
+            text.components(separatedBy: #""properties":{"action":"#).count - 1
+                == ActionKind.allCases.count)
+    }
+
+    /// Ollama enforces `maxItems` and `maxLength` while generating, so a model stuck repeating
+    /// itself stops at the limits instead of running until the request times out.
+    @Test func stepsAndTypedTextAreBoundedByTheLimits() throws {
+        var limits = SafetyLimits.safeDefaults
+        limits.maximumActionsPerTask = 7
+        limits.maximumTypedTextLength = 42
+        let schema = try encodedPlanSchema(limits: limits)
+        let steps = try #require(
+            (schema["properties"] as? [String: Any])?["steps"] as? [String: Any])
+        let variants = try #require(
+            (steps["items"] as? [String: Any])?["anyOf"] as? [[String: Any]])
+        let typeTextProperties = try #require(
+            variants.first {
+                ((($0["properties"] as? [String: Any])?["action"] as? [String: Any])?["enum"]
+                    as? [String]) == ["typeText"]
+            }?["properties"] as? [String: Any])
+
+        #expect(steps["maxItems"] as? Int == 7)
+        #expect((typeTextProperties["text"] as? [String: Any])?["maxLength"] as? Int == 42)
+        #expect(
+            (typeTextProperties["target"] as? [String: Any])?["maxLength"] as? Int
+                == PlannerSchemas.maximumNameLength)
     }
 
     @Test func everyActionHasAVariantRequiringItsFields() throws {

@@ -117,6 +117,9 @@ struct TaskRunnerTests {
 
     static let clickNewItemPlan =
         #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"New Item"}]}"#
+    /// A target that is no control's exact label, so the model has to pick one.
+    static let clickNewItemLooselyPlan =
+        #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"the new item button"}]}"#
 
     // MARK: - Questions
 
@@ -235,7 +238,9 @@ struct TaskRunnerTests {
         try await withTemporaryDirectory { directory in
             let harness = makeHarness(
                 in: directory,
-                modelAnswers: [Self.clickNewItemPlan, #"{"elementNumber":2,"blocked":false}"#])
+                modelAnswers: [
+                    Self.clickNewItemLooselyPlan, #"{"elementNumber":2,"blocked":false}"#,
+                ])
 
             let outcome = await harness.run("click new item")
 
@@ -245,6 +250,16 @@ struct TaskRunnerTests {
                         .forbiddenAction(matchedPhrase: "delete", elementLabel: "Delete"),
                         stepNumber: 1))
             #expect(harness.executor.performed.isEmpty)
+        }
+    }
+
+    @Test func exactlyLabelledTargetNeedsNoPickFromTheModel() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = makeHarness(in: directory, modelAnswers: [Self.clickNewItemPlan])
+
+            #expect(await harness.run("click new item") == .completed)
+            #expect(harness.model.requests.count == 1)
+            #expect(harness.executor.performed.map(\.targetElement) == [Self.newItemButton])
         }
     }
 
@@ -308,7 +323,8 @@ struct TaskRunnerTests {
         try await withTemporaryDirectory { directory in
             let badPick = #"{"elementNumber":42,"blocked":false}"#
             let harness = makeHarness(
-                in: directory, modelAnswers: [Self.clickNewItemPlan, badPick, badPick, badPick])
+                in: directory,
+                modelAnswers: [Self.clickNewItemLooselyPlan, badPick, badPick, badPick])
 
             let outcome = await harness.run("click new item")
 

@@ -32,6 +32,7 @@ struct OllamaClientTests {
         #expect(body["model"] as? String == "qwen3-vl:8b")
         #expect(body["stream"] as? Bool == false)
         #expect(body["think"] as? Bool == false)
+        #expect(body["keep_alive"] as? String == OllamaClient.keepModelLoadedFor)
         #expect((body["format"] as? [String: Any])?["type"] as? String == "object")
         #expect((body["options"] as? [String: Any])?["temperature"] as? Double == 0)
         let messages = try #require(body["messages"] as? [[String: Any]])
@@ -40,6 +41,23 @@ struct OllamaClientTests {
         #expect(
             messages.last?["images"] as? [String] == [Data([0x89, 0x50]).base64EncodedString()])
         #expect(messages.first?["images"] == nil)
+    }
+
+    @Test func schemaFieldOrderReachesOllama() async throws {
+        let (client, fakeTransport) = makeClient(replies: [
+            .response(
+                statusCode: 200,
+                body: #"{"message":{"role":"assistant","content":"{}"},"done":true}"#)
+        ])
+        let orderedRequest = LanguageModelRequest(
+            systemPrompt: "s", userPrompt: "u",
+            responseSchema: ["type": "object", "properties": ["kind": 1, "steps": 2]])
+
+        _ = try await client.respond(to: orderedRequest)
+
+        let bodyText = String(
+            decoding: try #require(fakeTransport.sentRequests.first?.httpBody), as: UTF8.self)
+        #expect(bodyText.contains(#""format":{"type":"object","properties":{"kind":1,"steps":2}}"#))
     }
 
     @Test func returnsTheAssistantContent() async throws {
@@ -88,12 +106,48 @@ struct OllamaClientTests {
         }
     }
 
+    /// Pressing STOP cancels the request; the log must say so, not blame Ollama.
+    @Test func cancelledRequestIsReportedAsCancelled() async {
+        let (client, _) = makeClient(replies: [.failure(.cancelled)])
+
+        await #expect(throws: LanguageModelError.cancelled) {
+            _ = try await client.respond(to: request)
+        }
+    }
+
     @Test func garbageResponseIsMalformed() async {
         let (client, _) = makeClient(replies: [.response(statusCode: 200, body: "not json")])
 
         await #expect(throws: LanguageModelError.self) {
             _ = try await client.respond(to: request)
         }
+    }
+
+    /// A cold model takes 10+ seconds to load, so Glim loads it before the person finishes
+    /// speaking. An empty chat is Ollama's way to load a model without generating anything.
+    @Test func loadingTheModelSendsAnEmptyChatThatKeepsItLoaded() async throws {
+        let (client, fakeTransport) = makeClient(replies: [
+            .response(statusCode: 200, body: #"{"model":"qwen3-vl:8b","done":true}"#)
+        ])
+
+        try await client.loadModel()
+
+        let sentRequest = try #require(fakeTransport.sentRequests.first)
+        #expect(sentRequest.url?.absoluteString == "http://127.0.0.1:11434/api/chat")
+        let body = try jsonObject(of: sentRequest)
+        #expect(body["model"] as? String == "qwen3-vl:8b")
+        #expect((body["messages"] as? [Any])?.isEmpty == true)
+        #expect(body["keep_alive"] as? String == OllamaClient.keepModelLoadedFor)
+    }
+
+    @Test func loadingACloudModelIsRefused() async {
+        let fakeTransport = FakeHTTPTransport(replies: [])
+        let client = OllamaClient(transport: fakeTransport, modelName: "gpt-oss:120b-cloud")
+
+        await #expect(throws: LanguageModelError.modelNotAllowed(modelName: "gpt-oss:120b-cloud")) {
+            try await client.loadModel()
+        }
+        #expect(fakeTransport.sentRequests.isEmpty)
     }
 
     @Test func listsInstalledModels() async throws {

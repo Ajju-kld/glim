@@ -67,7 +67,8 @@ public struct TaskRunner: Sendable {
                 windowTitle: frontSnapshot?.windowTitle,
                 elementLabels: frontSnapshot?.table.elements.map(\.label) ?? [],
                 installedAppNames: dependencies.appResolver.installedAppNames(),
-                runningAppNames: dependencies.appResolver.runningAppNames())
+                runningAppNames: dependencies.appResolver.runningAppNames(),
+                limits: currentPolicy.limits)
             switch try await plannerResult(for: context) {
             case .question:
                 return try await answerQuestion(goal, frontApp: frontApp, snapshot: frontSnapshot)

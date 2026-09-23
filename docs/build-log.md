@@ -596,3 +596,35 @@ the practice app is never mistaken for Glim in the Dock or app switcher.
 so the fresh build (and icon) is the one that opens.
 
 **Gates:** `All gates passed.` — 322 tests in 56 suites; strict lint clean.
+
+## 2026-09-23 — Speed: from 22 s to about 4 s per plan
+
+The owner reported ~10 s waits. Measured before changing anything:
+
+- **Ollama's log:** the first request took 21.5 s, of which **12.7 s was loading the model**
+  (Ollama unloads it after 5 idle minutes; only 4.7 GB of memory was free). Two later requests
+  ran 43 s and 60 s (the timeout).
+- **Root cause of the slow and odd plans:** `JSONValue.object` wrapped a Swift `Dictionary`,
+  so the schema's field order was random on every launch, and `JSONEncoder` reorders keys
+  anyway. Ollama makes the model write fields in schema order. With `action` after `app`, or
+  `steps` before `kind`, qwen3-vl looped (`openApp`, `switchApp`, `openApp`…) for 190–270+
+  tokens: a two-step answer became a runaway that hit the 60 s timeout, and plans came out as
+  lone `speak` steps or repeated steps. Reproduced in a scratch benchmark by scrambling key
+  order.
+
+Fixes:
+
+| Change | Effect (warm model, M2 16 GB) |
+|---|---|
+| `JSONValue` objects keep written order; `jsonData()` writes them in order; the Ollama client builds its body from it; every step variant starts with `action` | No loops; live tests pass 3 runs in a row (they failed 2–3 of 6 before) |
+| `keep_alive: 30m` on every request, and `loadModel()` at launch and when the talk key is pressed | The 12.7 s load overlaps the person talking instead of following it |
+| Planning prompt lists apps first and the request last | Ollama reuses its cached reading of the prompt start: prompt reading 3 s → 0.3–0.8 s |
+| A step whose target is exactly one control's label is picked by code | Saves one model call (~1.5 s) per click or type step |
+| Schema caps steps at the action limit and text at the typing limit (`maxItems`, `maxLength`, which Ollama enforces) | A runaway stops at the limits instead of the timeout |
+| STOP during planning is logged as "cancelled", not "Ollama isn't running" | Correct audit log |
+
+Benchmark of 8 real-world requests: 40.4 s → 25.0 s from prompt order alone; the live suite
+(6 model calls) went from 17–40 s to 13.1 s. `qwen3-vl:4b` was also measured: no faster
+(it writes twice the tokens) and worse plans, so 8b stays and 4b was removed.
+
+**Gates:** `All gates passed.` — 337 tests in 56 suites; live suite 4/4 three times.

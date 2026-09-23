@@ -5,6 +5,8 @@ public enum LanguageModelError: Error, Sendable, Equatable {
     /// The model isn't pulled; the fix is `ollama pull <model>`.
     case modelNotInstalled(modelName: String)
     case timedOut
+    /// The request was cancelled, for example because the person pressed STOP.
+    case cancelled
     case badResponse(statusCode: Int, message: String)
     case malformedResponse(reason: String)
     case blockedByNetworkPolicy(NetworkPolicyError)
@@ -20,6 +22,8 @@ public enum LanguageModelError: Error, Sendable, Equatable {
             "The model \(modelName) isn't installed. Install it with: ollama pull \(modelName)"
         case .timedOut:
             "The model took too long to answer."
+        case .cancelled:
+            "The request to the model was cancelled."
         case .badResponse(let statusCode, let message):
             "Ollama answered with an error (\(statusCode)): \(message)"
         case .malformedResponse(let reason):

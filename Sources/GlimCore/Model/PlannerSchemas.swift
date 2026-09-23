@@ -1,19 +1,37 @@
 /// JSON schemas that constrain the model's answers. Ollama enforces them while generating,
 /// and the planner validates the result again in code.
 public enum PlannerSchemas {
+    /// Tunable: the longest app name or control description the model may write. Real names
+    /// are far shorter; a model stuck repeating itself stops here.
+    public static let maximumNameLength = 200
+
     /// A question, or a task with steps. Each step is one of the per-action variants below, so
     /// the model can't leave out a field its action needs (a click without a target, a window
     /// move without a preset).
-    public static let plan: JSONValue = [
-        "type": "object",
-        "properties": [
-            "kind": ["type": "string", "enum": ["question", "task"]],
-            "steps": [
-                "type": "array", "items": ["anyOf": .array(ActionKind.allCases.map(stepVariant))],
+    ///
+    /// The step count and typed text are bounded by `limits`, so a model stuck repeating steps
+    /// stops at the action limit instead of generating until the request times out.
+    ///
+    /// Field order matters: Ollama makes the model write fields in schema order. `kind` comes
+    /// before `steps`, and every step starts with `action`; the other way round, qwen3-vl
+    /// commits to steps before choosing what they do and loops until the token cap.
+    public static func plan(limits: SafetyLimits) -> JSONValue {
+        let stepVariants = ActionKind.allCases.map { kind in
+            stepVariant(for: kind, limits: limits)
+        }
+        return [
+            "type": "object",
+            "properties": [
+                "kind": ["type": "string", "enum": ["question", "task"]],
+                "steps": [
+                    "type": "array",
+                    "items": ["anyOf": .array(stepVariants)],
+                    "maxItems": .integer(limits.maximumActionsPerTask),
+                ],
             ],
-        ],
-        "required": ["kind", "steps"],
-    ]
+            "required": ["kind", "steps"],
+        ]
+    }
 
     /// One element number, or blocked with a reason.
     public static let target: JSONValue = [
@@ -46,23 +64,24 @@ public enum PlannerSchemas {
         }
     }
 
-    private static func stepVariant(for kind: ActionKind) -> JSONValue {
+    private static func stepVariant(for kind: ActionKind, limits: SafetyLimits) -> JSONValue {
         let fields = requiredFields(of: kind)
-        var properties: [String: JSONValue] = [
+        // `action` must come first: the model writes fields in this order (see `plan`).
+        var properties: JSONValue = [
             "action": ["type": "string", "enum": [.string(kind.rawValue)]]
         ]
         for field in fields {
-            properties[field] = fieldSchema(named: field)
+            properties = properties.setting(field, to: fieldSchema(named: field, limits: limits))
         }
         return [
             "type": "object",
-            "properties": .object(properties),
+            "properties": properties,
             "required": .array((["action"] + fields).map { .string($0) }),
             "additionalProperties": false,
         ]
     }
 
-    private static func fieldSchema(named field: String) -> JSONValue {
+    private static func fieldSchema(named field: String, limits: SafetyLimits) -> JSONValue {
         switch field {
         case "key":
             ["type": "string", "enum": .array(AllowedKey.allCases.map { .string($0.rawValue) })]
@@ -73,7 +92,9 @@ public enum PlannerSchemas {
             ]
         case "preset":
             ["type": "string", "enum": .array(WindowPreset.allCases.map { .string($0.rawValue) })]
-        default: ["type": "string"]
+        case "text":
+            ["type": "string", "maxLength": .integer(limits.maximumTypedTextLength)]
+        default: ["type": "string", "maxLength": .integer(maximumNameLength)]
         }
     }
 }

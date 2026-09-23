@@ -13,8 +13,8 @@ enum RunnerFactory {
         watchdogHealth: WatchdogHealth
     ) -> TaskRunner {
         let transport = PolicyEnforcingTransport(
-            base: URLSessionTransport(), policy: NetworkPolicy(isJevEnabled: settings.jev.isEnabled)
-        )
+            base: services.transport,
+            policy: NetworkPolicy(isJevEnabled: settings.jev.isEnabled))
         var checkers: [any TargetChecker] = [LayaChecker(transport: transport)]
         if settings.jev.isEnabled {
             let secretStore = KeychainSecretStore()

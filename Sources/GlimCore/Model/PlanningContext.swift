@@ -13,6 +13,8 @@ public struct PlanningContext: Sendable, Equatable {
     public let installedAppNames: [String]
     /// Names of running apps the plan may switch to, arrange or quit.
     public let runningAppNames: [String]
+    /// The limits in effect, which bound the plan the model may write.
+    public let limits: SafetyLimits
 
     /// Creates a planning context.
     public init(
@@ -21,7 +23,8 @@ public struct PlanningContext: Sendable, Equatable {
         windowTitle: String?,
         elementLabels: [String],
         installedAppNames: [String],
-        runningAppNames: [String]
+        runningAppNames: [String],
+        limits: SafetyLimits = .safeDefaults
     ) {
         self.goal = goal
         self.frontAppName = frontAppName
@@ -29,5 +32,6 @@ public struct PlanningContext: Sendable, Equatable {
         self.elementLabels = elementLabels
         self.installedAppNames = installedAppNames
         self.runningAppNames = runningAppNames
+        self.limits = limits
     }
 }
