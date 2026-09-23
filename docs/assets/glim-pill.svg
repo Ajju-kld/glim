@@ -1,23 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="280" viewBox="0 0 820 280" role="img" aria-labelledby="glimTitle glimDescription">
   <title id="glimTitle">Glim — the notch pill</title>
-  <desc id="glimDescription">Animated: a black pill grows out of the MacBook notch. Glim listens while a waveform dances and your words appear, then acts step by step in green, then says Done.</desc>
+  <desc id="glimDescription">Animated: a black pill grows out of the MacBook notch with Glim's orb, a sphere of flowing light. It ripples in cyan and violet while listening to "open notes and write buy milk", turns magenta while planning, flows in teal and mint while acting step by step, and settles green with a check when done.</desc>
   <defs>
     <linearGradient id="wallpaper" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#150f3d"/>
       <stop offset="0.55" stop-color="#2a1b6e"/>
       <stop offset="1" stop-color="#0c3456"/>
     </linearGradient>
-    <radialGradient id="orb" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
-      <stop offset="0.35" stop-color="#7dd3fc" stop-opacity="0.9"/>
-      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    <radialGradient id="depthShade" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0.55" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.45"/>
     </radialGradient>
+    <clipPath id="sphereClip">
+      <circle cx="252" cy="60" r="19"/>
+    </clipPath>
+    <filter id="blobBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+    <filter id="auraBlur" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
     <filter id="softGlow" x="-40%" y="-80%" width="180%" height="260%">
       <feGaussianBlur stdDeviation="14"/>
     </filter>
     <clipPath id="typedWords">
-      <rect x="300" y="44" width="0" height="34">
-        <animate attributeName="width" values="0;290;290;0" keyTimes="0;0.34;0.44;0.45" dur="9s" repeatCount="indefinite"/>
+      <rect x="282" y="40" width="0" height="34">
+        <animate attributeName="width" values="0;290;290;0" keyTimes="0;0.30;0.375;0.38" dur="10s" repeatCount="indefinite"/>
       </rect>
     </clipPath>
     <clipPath id="frame">
@@ -34,58 +42,141 @@
     <text x="74" y="21" fill="#e5e7eb" font-size="13">File   Edit   Format   View</text>
     <text x="684" y="21" fill="#e5e7eb" font-size="13">✦    ⌃⌥V    9:41</text>
 
-    <!-- Glow behind the pill: cyan while listening, green while acting -->
-    <rect x="230" y="18" width="360" height="86" rx="34" filter="url(#softGlow)" fill="#22d3ee" opacity="0.5">
-      <animate attributeName="fill" values="#22d3ee;#22d3ee;#34d399;#34d399" keyTimes="0;0.45;0.46;1" dur="9s" repeatCount="indefinite"/>
-      <animate attributeName="opacity" values="0.3;0.65;0.3" dur="1.8s" repeatCount="indefinite"/>
+    <!-- Glow behind the pill, in the orb's mood colour -->
+    <rect x="230" y="14" width="360" height="86" rx="34" filter="url(#softGlow)" fill="#59F2FF" opacity="0.5">
+      <animate attributeName="fill" values="#59F2FF;#59F2FF;#F266FF;#66FFBF;#66FFBF;#73FF99;#73FF99" keyTimes="0;0.375;0.38;0.48;0.795;0.80;1" dur="10s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.3;0.6;0.3" dur="1.8s" repeatCount="indefinite"/>
     </rect>
 
     <!-- The pill, merged with the notch -->
-    <path d="M220 0 H600 V74 A22 22 0 0 1 578 96 H242 A22 22 0 0 1 220 74 Z" fill="#000"/>
-    <path d="M220 0 H600 V74 A22 22 0 0 1 578 96 H242 A22 22 0 0 1 220 74 Z" fill="none" stroke="#22d3ee" stroke-opacity="0.35" stroke-width="1.5">
-      <animate attributeName="stroke" values="#22d3ee;#22d3ee;#34d399;#34d399" keyTimes="0;0.45;0.46;1" dur="9s" repeatCount="indefinite"/>
+    <path d="M220 0 H600 V70 A22 22 0 0 1 578 92 H242 A22 22 0 0 1 220 70 Z" fill="#000"/>
+    <path d="M220 0 H600 V70 A22 22 0 0 1 578 92 H242 A22 22 0 0 1 220 70 Z" fill="none" stroke="#59F2FF" stroke-opacity="0.35" stroke-width="1.5">
+      <animate attributeName="stroke" values="#59F2FF;#59F2FF;#F266FF;#66FFBF;#66FFBF;#73FF99;#73FF99" keyTimes="0;0.375;0.38;0.48;0.795;0.80;1" dur="10s" repeatCount="indefinite"/>
     </path>
 
-    <!-- Phase 1: listening -->
+    <!-- listening -->
     <g>
-      <animate attributeName="opacity" values="1;1;0;0" keyTimes="0;0.44;0.45;1" dur="9s" repeatCount="indefinite"/>
-      <circle cx="252" cy="64" r="15" fill="url(#orb)">
-        <animate attributeName="r" values="12;16;12" dur="1.2s" repeatCount="indefinite"/>
-      </circle>
-      <g fill="#22d3ee">
-        <rect x="274" y="58" width="4" height="12" rx="2">
-          <animate attributeName="height" values="6;22;9;18;6" dur="0.9s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="61;53;59.5;55;61" dur="0.9s" repeatCount="indefinite"/>
-        </rect>
-        <rect x="281" y="58" width="4" height="12" rx="2">
-          <animate attributeName="height" values="14;6;20;8;14" dur="0.8s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="57;61;54;60;57" dur="0.8s" repeatCount="indefinite"/>
-        </rect>
-        <rect x="288" y="58" width="4" height="12" rx="2">
-          <animate attributeName="height" values="8;18;6;22;8" dur="1s" repeatCount="indefinite"/>
-          <animate attributeName="y" values="60;55;61;53;60" dur="1s" repeatCount="indefinite"/>
-        </rect>
+      <animate attributeName="opacity" values="1;1;0;0" keyTimes="0;0.375;0.380;1" dur="10s" repeatCount="indefinite"/>
+      <g id="orb-listening">
+        <!-- aura: the palette turning behind the sphere -->
+        <g filter="url(#auraBlur)" opacity="0.8">
+          <circle cx="245" cy="60" r="15" fill="#59F2FF"/>
+          <circle cx="259" cy="60" r="15" fill="#BF59FF"/>
+          <circle cx="252" cy="67" r="13" fill="#FF73CC"/>
+          <animateTransform attributeName="transform" type="rotate" values="0 252 60;360 252 60" dur="3.0s" repeatCount="indefinite"/>
+        </g>
+        <!-- sphere: colours flowing inside a liquid edge -->
+        <g>
+          <g transform="translate(252 60)">
+            <g>
+              <animateTransform attributeName="transform" type="scale" values="1 1;1.07 0.9299999999999999;0.9299999999999999 1.07;1 1" dur="1.1s" repeatCount="indefinite"/>
+              <g transform="translate(-252 -60)">
+                <g clip-path="url(#sphereClip)">
+                  <circle cx="252" cy="60" r="19" fill="#4D73FF"/>
+                  <circle cx="261" cy="60" r="12" fill="#59F2FF" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="0 252 60;360 252 60" dur="3.0s" repeatCount="indefinite"/></circle><circle cx="262" cy="60" r="11" fill="#BF59FF" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="90 252 60;-270 252 60" dur="4.1s" repeatCount="indefinite"/></circle><circle cx="260" cy="60" r="10" fill="#FF73CC" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="180 252 60;540 252 60" dur="5.1s" repeatCount="indefinite"/></circle><circle cx="258" cy="60" r="5" fill="#ffffff" opacity="0.55" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="270 252 60;-90 252 60" dur="6.1s" repeatCount="indefinite"/></circle>
+                  <circle cx="252" cy="60" r="19" fill="url(#depthShade)"/>
+                </g>
+                <ellipse cx="246" cy="52" rx="7" ry="4" fill="#ffffff" opacity="0.5" transform="rotate(-30 246 52)"/>
+                <circle cx="252" cy="60" r="18.5" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1"/>
+              </g>
+            </g>
+          </g>
+        </g>
       </g>
-      <text x="304" y="69" fill="#fff" font-size="15" font-weight="500" clip-path="url(#typedWords)">open notes and write buy milk</text>
+      <text x="286" y="65" fill="#fff" font-size="15" font-weight="500" clip-path="url(#typedWords)">open notes and write buy milk</text>
     </g>
-
-    <!-- Phase 2: acting -->
+    <!-- planning -->
     <g opacity="0">
-      <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.45;0.46;0.8;0.81;1" dur="9s" repeatCount="indefinite"/>
-      <path d="M254 48 L244 67 H253 L249 82 L262 60 H253 Z" fill="#34d399">
-        <animate attributeName="opacity" values="1;0.45;1" dur="0.9s" repeatCount="indefinite"/>
-      </path>
-      <text x="276" y="69" fill="#fff" font-size="15" font-weight="500">2/3   Click “New Note” in Notes</text>
-      <circle cx="574" cy="64" r="13" fill="#ef4444" opacity="0.9"/>
-      <rect x="569" y="59" width="10" height="10" rx="2" fill="#fff"/>
+      <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.380;0.385;0.475;0.480;1" dur="10s" repeatCount="indefinite"/>
+      <g id="orb-planning">
+        <!-- aura: the palette turning behind the sphere -->
+        <g filter="url(#auraBlur)" opacity="0.8">
+          <circle cx="245" cy="60" r="15" fill="#F266FF"/>
+          <circle cx="259" cy="60" r="15" fill="#FF808C"/>
+          <circle cx="252" cy="67" r="13" fill="#4DBFFF"/>
+          <animateTransform attributeName="transform" type="rotate" values="0 252 60;360 252 60" dur="1.6s" repeatCount="indefinite"/>
+        </g>
+        <!-- sphere: colours flowing inside a liquid edge -->
+        <g>
+          <g transform="translate(252 60)">
+            <g>
+              <animateTransform attributeName="transform" type="scale" values="1 1;1.04 0.96;0.96 1.04;1 1" dur="1.1s" repeatCount="indefinite"/>
+              <g transform="translate(-252 -60)">
+                <g clip-path="url(#sphereClip)">
+                  <circle cx="252" cy="60" r="19" fill="#734DFF"/>
+                  <circle cx="261" cy="60" r="12" fill="#F266FF" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="0 252 60;360 252 60" dur="1.6s" repeatCount="indefinite"/></circle><circle cx="262" cy="60" r="11" fill="#FF808C" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="90 252 60;-270 252 60" dur="2.2s" repeatCount="indefinite"/></circle><circle cx="260" cy="60" r="10" fill="#4DBFFF" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="180 252 60;540 252 60" dur="2.7s" repeatCount="indefinite"/></circle><circle cx="258" cy="60" r="5" fill="#ffffff" opacity="0.55" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="270 252 60;-90 252 60" dur="3.3s" repeatCount="indefinite"/></circle>
+                  <circle cx="252" cy="60" r="19" fill="url(#depthShade)"/>
+                </g>
+                <ellipse cx="246" cy="52" rx="7" ry="4" fill="#ffffff" opacity="0.5" transform="rotate(-30 246 52)"/>
+                <circle cx="252" cy="60" r="18.5" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1"/>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+      <text x="286" y="65" fill="#e9d5ff" font-size="15" font-weight="500">Planning…</text>
     </g>
-
-    <!-- Phase 3: done -->
+    <!-- acting -->
     <g opacity="0">
-      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.81;0.82;1" dur="9s" repeatCount="indefinite"/>
-      <circle cx="254" cy="64" r="12" fill="#34d399"/>
-      <path d="M248 64 L252.5 68.5 L260.5 59.5" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-      <text x="276" y="69" fill="#fff" font-size="15" font-weight="600">Done</text>
+      <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.480;0.485;0.795;0.800;1" dur="10s" repeatCount="indefinite"/>
+      <g id="orb-acting">
+        <!-- aura: the palette turning behind the sphere -->
+        <g filter="url(#auraBlur)" opacity="0.8">
+          <circle cx="245" cy="60" r="15" fill="#66FFBF"/>
+          <circle cx="259" cy="60" r="15" fill="#598CFF"/>
+          <circle cx="252" cy="67" r="13" fill="#B3FF80"/>
+          <animateTransform attributeName="transform" type="rotate" values="0 252 60;360 252 60" dur="2.2s" repeatCount="indefinite"/>
+        </g>
+        <!-- sphere: colours flowing inside a liquid edge -->
+        <g>
+          <g transform="translate(252 60)">
+            <g>
+              <animateTransform attributeName="transform" type="scale" values="1 1;1.035 0.965;0.965 1.035;1 1" dur="1.1s" repeatCount="indefinite"/>
+              <g transform="translate(-252 -60)">
+                <g clip-path="url(#sphereClip)">
+                  <circle cx="252" cy="60" r="19" fill="#1ABFD9"/>
+                  <circle cx="261" cy="60" r="12" fill="#66FFBF" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="0 252 60;360 252 60" dur="2.2s" repeatCount="indefinite"/></circle><circle cx="262" cy="60" r="11" fill="#598CFF" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="90 252 60;-270 252 60" dur="3.0s" repeatCount="indefinite"/></circle><circle cx="260" cy="60" r="10" fill="#B3FF80" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="180 252 60;540 252 60" dur="3.7s" repeatCount="indefinite"/></circle><circle cx="258" cy="60" r="5" fill="#ffffff" opacity="0.55" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="270 252 60;-90 252 60" dur="4.5s" repeatCount="indefinite"/></circle>
+                  <circle cx="252" cy="60" r="19" fill="url(#depthShade)"/>
+                </g>
+                <ellipse cx="246" cy="52" rx="7" ry="4" fill="#ffffff" opacity="0.5" transform="rotate(-30 246 52)"/>
+                <circle cx="252" cy="60" r="18.5" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1"/>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+      <text x="286" y="65" fill="#fff" font-size="15" font-weight="500">2/3   Click “New Note” in Notes</text><circle cx="574" cy="60" r="13" fill="#ef4444" opacity="0.9"/><rect x="569" y="55" width="10" height="10" rx="2" fill="#fff"/><rect x="286" y="78" width="250" height="3" rx="1.5" fill="#ffffff" opacity="0.15"/><rect x="286" y="78" width="165" height="3" rx="1.5" fill="#66FFBF"/>
+    </g>
+    <!-- done -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.800;0.805;1" dur="10s" repeatCount="indefinite"/>
+      <g id="orb-done">
+        <!-- aura: the palette turning behind the sphere -->
+        <g filter="url(#auraBlur)" opacity="0.8">
+          <circle cx="245" cy="60" r="15" fill="#73FF99"/>
+          <circle cx="259" cy="60" r="15" fill="#66E6E6"/>
+          <circle cx="252" cy="67" r="13" fill="#CCFFB3"/>
+          <animateTransform attributeName="transform" type="rotate" values="0 252 60;360 252 60" dur="6.0s" repeatCount="indefinite"/>
+        </g>
+        <!-- sphere: colours flowing inside a liquid edge -->
+        <g>
+          <g transform="translate(252 60)">
+            <g>
+              <animateTransform attributeName="transform" type="scale" values="1 1;1.0 1.0;1.0 1.0;1 1" dur="1.1s" repeatCount="indefinite"/>
+              <g transform="translate(-252 -60)">
+                <g clip-path="url(#sphereClip)">
+                  <circle cx="252" cy="60" r="19" fill="#26BF8C"/>
+                  <circle cx="261" cy="60" r="12" fill="#73FF99" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="0 252 60;360 252 60" dur="6.0s" repeatCount="indefinite"/></circle><circle cx="262" cy="60" r="11" fill="#66E6E6" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="90 252 60;-270 252 60" dur="8.1s" repeatCount="indefinite"/></circle><circle cx="260" cy="60" r="10" fill="#CCFFB3" opacity="0.95" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="180 252 60;540 252 60" dur="10.2s" repeatCount="indefinite"/></circle><circle cx="258" cy="60" r="5" fill="#ffffff" opacity="0.55" filter="url(#blobBlur)"><animateTransform attributeName="transform" type="rotate" values="270 252 60;-90 252 60" dur="12.3s" repeatCount="indefinite"/></circle>
+                  <circle cx="252" cy="60" r="19" fill="url(#depthShade)"/>
+                </g>
+                <ellipse cx="246" cy="52" rx="7" ry="4" fill="#ffffff" opacity="0.5" transform="rotate(-30 246 52)"/>
+                <circle cx="252" cy="60" r="18.5" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1"/>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+      <text x="286" y="65" fill="#fff" font-size="15" font-weight="600">Done</text><path d="M245 60 L250 65 L260 54" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
 
     <!-- Wordmark -->
