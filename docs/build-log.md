@@ -757,3 +757,20 @@ folder row), which failed with AX error -25205. Two causes, both fixed with test
   chips with a remove button. The shared `FlowLayout` no longer reports an infinite width.
 
 **Gates:** `All gates passed.` — 367 tests in 61 suites; suite run 5× without a flake.
+
+## 2026-09-23 — Notes and Spotify: finding the real button
+
+Owner's logs: Notes clicked "Notes, 126 notes" again, and Spotify's plan "Click Play button"
+kept picking the window's zoom button until the mismatch guard stopped it.
+
+- **Windows are read level by level** (`BreadthFirstWalk`). The depth-first walk spent its
+  2,000-node / 1.5 s budget inside long lists (every note, every track) and never reached the
+  toolbar. Breadth-first, controls near the top of the tree are always read first. Tests: a
+  deep list and a shallow toolbar button under a tight budget, order, depth limit.
+- **Title-bar buttons are never offered** (close, minimize, zoom, full screen), so the model
+  can't pick "this button also has an action to zoom the window".
+- **Stricter plan match:** one side must contain all the other's meaningful words. Sharing one
+  word ("note") no longer makes "Notes, 126 notes" match "New Note".
+- **Readable log:** task outcomes are worded ("blocked at step 2: …") instead of Swift dumps.
+
+**Gates:** `All gates passed.` — 373 tests in 62 suites.

@@ -7,15 +7,6 @@ import Foundation
 /// action names an element by number. All calls run off the main thread with a short
 /// messaging timeout, so a frozen app can't block Glim or the kill switch.
 public actor AccessibilityService: ScreenReading {
-    private struct TreeWalk {
-        let deadline: ContinuousClock.Instant
-        var nodesVisited = 0
-
-        var canContinue: Bool {
-            nodesVisited < ScreenReadingLimits.maximumNodes && ContinuousClock.now < deadline
-        }
-    }
-
     struct NodeAttributes {
         var role = ""
         var subrole: String?
@@ -77,8 +68,7 @@ public actor AccessibilityService: ScreenReading {
         let window = try focusedWindow(of: appElement, appName: app.identity.displayName)
 
         handles = []
-        var walk = TreeWalk(deadline: ContinuousClock.now + ScreenReadingLimits.walkTimeBudget)
-        let rootNode = node(for: window, depth: 0, walk: &walk)
+        let rootNode = readTree(from: window)
         let table = ElementTableBuilder().build(from: rootNode)
         currentTable = table
         currentProcessIdentifier = processIdentifier
@@ -216,37 +206,49 @@ public actor AccessibilityService: ScreenReading {
 
     // MARK: - Tree walking
 
-    private func node(for element: AXUIElement, depth: Int, walk: inout TreeWalk)
-        -> AccessibilityNode
-    {
-        walk.nodesVisited += 1
-        let handleIndex = handles.count
-        handles.append(element)
-        let attributes = Self.attributes(of: element)
+    /// Reads the window's tree level by level within the node and time budget, so controls near
+    /// the top (the toolbar) are read before long lists deep in the tree use up the budget.
+    private func readTree(from window: AXUIElement) -> AccessibilityNode {
+        let deadline = ContinuousClock.now + ScreenReadingLimits.walkTimeBudget
+        let result = BreadthFirstWalk.walk(
+            from: window, maximumDepth: ScreenReadingLimits.maximumDepth,
+            shouldContinue: { visitedCount in
+                visitedCount < ScreenReadingLimits.maximumNodes && ContinuousClock.now < deadline
+            },
+            visit: { element in
+                let attributes = Self.attributes(of: element)
+                return (details: attributes, children: attributes.children)
+            })
+        let firstHandleIndex = handles.count
+        handles.append(contentsOf: result.elements)
+        let handleIndices = result.elements.indices.map { firstHandleIndex + $0 }
+        return assembledNode(
+            at: 0, childIndices: result.childIndices, attributes: result.details,
+            handleIndices: handleIndices)
+    }
 
-        var children: [AccessibilityNode] = []
-        if depth < ScreenReadingLimits.maximumDepth {
-            for child in attributes.children {
-                guard walk.canContinue else {
-                    break
-                }
-                children.append(node(for: child, depth: depth + 1, walk: &walk))
-            }
-        }
+    private func assembledNode(
+        at index: Int, childIndices: [[Int]], attributes: [NodeAttributes], handleIndices: [Int]
+    ) -> AccessibilityNode {
+        let nodeAttributes = attributes[index]
         return AccessibilityNode(
-            handleIndex: handleIndex,
-            role: attributes.role,
-            subrole: attributes.subrole,
-            title: attributes.title,
-            elementDescription: attributes.elementDescription,
-            placeholder: attributes.placeholder,
-            helpText: attributes.helpText,
-            identifier: attributes.identifier,
-            value: attributes.value,
-            isEnabled: attributes.isEnabled,
-            width: attributes.size.width,
-            height: attributes.size.height,
-            children: children)
+            handleIndex: handleIndices[index],
+            role: nodeAttributes.role,
+            subrole: nodeAttributes.subrole,
+            title: nodeAttributes.title,
+            elementDescription: nodeAttributes.elementDescription,
+            placeholder: nodeAttributes.placeholder,
+            helpText: nodeAttributes.helpText,
+            identifier: nodeAttributes.identifier,
+            value: nodeAttributes.value,
+            isEnabled: nodeAttributes.isEnabled,
+            width: nodeAttributes.size.width,
+            height: nodeAttributes.size.height,
+            children: childIndices[index].map { childIndex in
+                assembledNode(
+                    at: childIndex, childIndices: childIndices, attributes: attributes,
+                    handleIndices: handleIndices)
+            })
     }
 
     /// Copies every attribute in one round trip to the app.

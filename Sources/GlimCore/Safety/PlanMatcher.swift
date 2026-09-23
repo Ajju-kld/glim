@@ -1,7 +1,8 @@
 /// Checks that the element the model chose fits the target the person approved.
 ///
-/// The chosen element's label, title or description must share at least one meaningful word
-/// with the approved target. A mismatch is not a denial: the gate asks the person, showing both
+/// Either every meaningful word of the approved target appears in the element's label, title or
+/// description, or every word of the element appears in the target ("note body" fits a field
+/// labelled "Note"). Sharing a single word is not enough: "Notes, 126 notes" is not "New Note". A mismatch is not a denial: the gate asks the person, showing both
 /// ("Plan said New Note, AI chose Archive"). With no meaningful words to compare, the check
 /// fails closed and asks.
 public struct PlanMatcher: Sendable {
@@ -28,7 +29,10 @@ public struct PlanMatcher: Sendable {
         let elementWords = elementTexts.reduce(into: Set<String>()) { words, text in
             words.formUnion(Self.meaningfulWords(in: text))
         }
-        return !plannedWords.isDisjoint(with: elementWords)
+        guard !elementWords.isEmpty else {
+            return false
+        }
+        return plannedWords.isSubset(of: elementWords) || elementWords.isSubset(of: plannedWords)
     }
 
     static func meaningfulWords(in text: String) -> Set<String> {

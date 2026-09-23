@@ -9,6 +9,11 @@ public struct ElementTableBuilder: Sendable {
         "AXStaticText", "AXTextArea", "AXTextField", "AXHeading",
     ]
     private static let labelSearchDepth = 2
+    /// Business rule: the title bar's own buttons close, minimize or zoom the window. They are
+    /// never offered, so the model can't pick them.
+    private static let windowButtonSubroles: Set<String> = [
+        "AXCloseButton", "AXMinimizeButton", "AXZoomButton", "AXFullScreenButton",
+    ]
     /// Business rule: list rows and cells give way to buttons and fields when a window has more
     /// controls than the table holds (Notes lists every note before its toolbar).
     private static let lowPriorityRoles: Set<String> = ["AXRow", "AXCell"]
@@ -104,7 +109,9 @@ public struct ElementTableBuilder: Sendable {
     static func label(for node: AccessibilityNode) -> String? {
         let isClickable = ElementRoles.clickableRoles.contains(node.role)
         let isTextEntry = ElementRoles.textEntryRoles.contains(node.role)
-        guard isClickable || isTextEntry, node.isEnabled, node.width > 0, node.height > 0 else {
+        guard isClickable || isTextEntry, node.isEnabled, node.width > 0, node.height > 0,
+            !windowButtonSubroles.contains(node.subrole ?? "")
+        else {
             return nil
         }
         let ownLabel = [node.title, node.elementDescription, node.placeholder, node.helpText]

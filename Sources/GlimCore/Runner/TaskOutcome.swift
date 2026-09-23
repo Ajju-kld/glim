@@ -12,4 +12,17 @@ public enum TaskOutcome: Sendable, Equatable {
     case stopped(TripReason)
     /// Something went wrong that isn't a safety decision, such as Ollama being down.
     case failed(String)
+
+    /// One readable line for the activity log.
+    public var summary: String {
+        switch self {
+        case .answered(let answer): "answered: \(answer)"
+        case .completed: "completed"
+        case .blocked(let violation, let stepNumber):
+            "blocked\(stepNumber.map { " at step \($0)" } ?? ""): \(violation.title) — \(violation.explanation)"
+        case .cancelled: "cancelled"
+        case .stopped(let reason): "stopped: \(reason.explanation)"
+        case .failed(let message): "failed: \(message)"
+        }
+    }
 }

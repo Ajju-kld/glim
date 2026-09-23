@@ -17,7 +17,15 @@ struct PlanMatcherTests {
         #expect(!matcher.elementMatchesPlan(targetDescription: "New Note", element: button))
     }
 
-    @Test func oneSharedMeaningfulWordMatches() {
+    /// Sharing one word is not enough: the Notes folder row "Notes, 126 notes" shares "note"
+    /// with "New Note" but is not it.
+    @Test func rowSharingOneWordIsNotTheButton() {
+        let folderRow = UIElementSnapshot.fixture(role: "AXRow", label: "Notes, 126 notes")
+
+        #expect(!matcher.elementMatchesPlan(targetDescription: "New Note", element: folderRow))
+    }
+
+    @Test func labelWithinThePlanWordingMatches() {
         let field = UIElementSnapshot.fixture(role: "AXTextArea", label: "Note")
 
         #expect(matcher.elementMatchesPlan(targetDescription: "note body", element: field))

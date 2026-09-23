@@ -27,6 +27,26 @@ extension AccessibilityNode {
 struct ElementTableBuilderTests {
     let builder = ElementTableBuilder()
 
+    /// The traffic-light buttons close, minimize or zoom the window; Glim never offers them.
+    @Test func windowTitleBarButtonsAreLeftOut() {
+        let window = AccessibilityNode.fixture(
+            role: "AXWindow", title: "Spotify",
+            children: [
+                .fixture(
+                    handleIndex: 1, role: "AXButton", subrole: "AXCloseButton", title: "close"),
+                .fixture(
+                    handleIndex: 2, role: "AXButton", subrole: "AXZoomButton",
+                    elementDescription: "this button also has an action to zoom the window"),
+                .fixture(
+                    handleIndex: 3, role: "AXButton", subrole: "AXMinimizeButton", title: "min"),
+                .fixture(
+                    handleIndex: 4, role: "AXButton", subrole: "AXFullScreenButton", title: "full"),
+                .fixture(handleIndex: 5, role: "AXButton", title: "Play"),
+            ])
+
+        #expect(builder.build(from: window).elements.map(\.label) == ["Play"])
+    }
+
     @Test func unnamedTextAreaIsListedAsUntitled() {
         let window = AccessibilityNode.fixture(
             role: "AXWindow", title: "Notes",

@@ -35,7 +35,7 @@ public struct TaskRunner: Sendable {
             outcome = .stopped(tripReason)
         }
         do {
-            try await audit(.taskFinished, "Task ended: \(outcome)")
+            try await audit(.taskFinished, "Task ended: \(outcome.summary)")
         } catch {
             // The outcome already stands; the audit failure is reported instead of hidden.
             onEvent(.finished(.failed("The audit log could not be written.")))

@@ -402,6 +402,20 @@ struct TaskRunnerTests {
         }
     }
 
+    @Test(arguments: [
+        (TaskOutcome.completed, "completed"),
+        (
+            .blocked(.limitReached(.tooManyTriesForStep(limit: 3)), stepNumber: 2),
+            "blocked at step 2: "
+        ),
+        (.stopped(.humanTookOver), "stopped: "),
+        (.failed("Notes has no open window."), "failed: Notes has no open window."),
+    ])
+    func outcomeIsWorded(outcome: TaskOutcome, expectedStart: String) {
+        #expect(outcome.summary.hasPrefix(expectedStart))
+        #expect(!outcome.summary.contains("GlimCore"))
+    }
+
     @Test func exactlyLabelledTargetNeedsNoPickFromTheModel() async throws {
         try await withTemporaryDirectory { directory in
             let harness = makeHarness(in: directory, modelAnswers: [Self.clickNewItemPlan])
