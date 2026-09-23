@@ -39,7 +39,10 @@ struct SafetyRulesPage: View {
                 }
                 .toggleStyle(.switch)
             }
-            HStack(alignment: .top, spacing: 16) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 300), spacing: 16, alignment: .top)],
+                alignment: .leading, spacing: 16
+            ) {
                 phraseCard(
                     title: "Forbidden — always blocked", systemImage: "nosign", tint: .red,
                     phrases: \.safetyPolicy.riskWords.forbidden, newPhrase: $newForbiddenPhrase)
@@ -105,19 +108,25 @@ struct SafetyRulesPage: View {
         newPhrase: Binding<String>
     ) -> some View {
         GlassCard(title: title, systemImage: systemImage, tint: tint) {
-            ForEach(model.settings[keyPath: phrasesKeyPath], id: \.self) { phrase in
-                HStack {
-                    Text(phrase)
-                    Spacer()
-                    Button {
-                        model.changeSettings {
-                            $0[keyPath: phrasesKeyPath].removeAll { $0 == phrase }
+            FlowLayout(spacing: 6) {
+                ForEach(model.settings[keyPath: phrasesKeyPath], id: \.self) { phrase in
+                    HStack(spacing: 4) {
+                        Text(phrase).font(.callout)
+                        Button {
+                            model.changeSettings {
+                                $0[keyPath: phrasesKeyPath].removeAll { $0 == phrase }
+                            }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(tint.opacity(0.8))
                         }
-                    } label: {
-                        Image(systemName: "minus.circle.fill").foregroundStyle(tint)
+                        .buttonStyle(.plain)
+                        .help("Remove “\(phrase)” (needs Touch ID)")
                     }
-                    .buttonStyle(.plain)
-                    .help("Remove “\(phrase)” (needs Touch ID)")
+                    .padding(.leading, 10)
+                    .padding(.trailing, 6)
+                    .padding(.vertical, 4)
+                    .background(tint.opacity(0.12), in: .capsule)
                 }
             }
             HStack {

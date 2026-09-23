@@ -740,3 +740,20 @@ folder row), which failed with AX error -25205. Two causes, both fixed with test
   switch is off.
 
 **Gates:** `All gates passed.` — 360 tests in 61 suites.
+
+## 2026-09-23 — Unnamed fields, takeover switch, faster steps, editable Apps & Trust
+
+- **Typing failed after New Note** ("Element 0 is not one of the listed controls"): Notes' note
+  body has no name, so it was never listed. Unnamed text fields are now listed as "Untitled
+  text area/field" (never their contents), and a typing step with one field on screen types
+  there without a model call. Tests: builder, planner, runner.
+- **"Stop when I touch the keyboard or mouse"** is now a switch in Safety Rules (default on;
+  turning it off needs Touch ID; strict combination keeps it on if either policy wants it).
+- **Faster steps:** the window read after a step is reused by the next step in the same app,
+  saving one full window walk (up to 1.5 s in big windows like Notes) per step.
+- **Apps & Trust** is one searchable list with a tier menu on every app, filter tabs with
+  counts, and "Default tier" / "Not installed" hints — replacing four long drag-and-drop columns.
+- **Narrow windows:** Safety Rules' phrase cards stack when narrow, and phrases are compact
+  chips with a remove button. The shared `FlowLayout` no longer reports an infinite width.
+
+**Gates:** `All gates passed.` — 367 tests in 61 suites; suite run 5× without a flake.
