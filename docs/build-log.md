@@ -909,3 +909,14 @@ listing app names for the planner and messages. Tests reproduce the failure firs
 (`resolve(appNamed: "WhatsApp")` returned nothing).
 
 **Gates:** `All gates passed.` — 429 Swift tests in 69 suites, 17 Python tests.
+
+## 2026-09-23 — Published
+
+**Q:** Repository name and visibility? **A (owner):** `glim`, public.
+**Q:** Which email should the public commits show? **A (owner):** the GitHub noreply address.
+
+- All 60 commits were rewritten from the personal address to
+  `67229095+Ajju-kld@users.noreply.github.com` (file contents unchanged; the build log's commit
+  IDs were updated), and this repository commits with that address from now on.
+- Published at https://github.com/Ajju-kld/glim (`main` only), with private vulnerability
+  reporting turned on for [SECURITY.md](../SECURITY.md).
