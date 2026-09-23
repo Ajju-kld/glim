@@ -22,11 +22,14 @@ struct PlannerModelPolicyTests {
 
     @Test func changingTheModelIsALoosening() {
         var changedSettings = GlimSettings.safeDefaults
-        changedSettings.plannerModelName = "qwen3-vl:4b"
+        changedSettings.plannerModelName = "llama3.2-vision:11b"
 
         #expect(
             SafetyChangeClassifier.loosenings(from: .safeDefaults, to: changedSettings)
-                == [.plannerModelChanged(from: "qwen3-vl:8b", to: "qwen3-vl:4b")])
+                == [
+                    .plannerModelChanged(
+                        from: GlimSettings.defaultPlannerModelName, to: "llama3.2-vision:11b")
+                ])
     }
 
     @Test func ollamaClientRefusesACloudModelWithoutSendingAnything() async {

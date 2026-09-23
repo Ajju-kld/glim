@@ -1029,5 +1029,6 @@ compressed and decompressed while idle, `kernel_task` at 34 % CPU, and `qwen3-vl
   `scripts/install.sh`, README, CONTRIBUTING, the manual tests and the design spec follow.
 - Existing settings keep their saved model: switching on the AI Models page is a planner-model
   change and asks for Touch ID, like before.
-- `qwen3-vl:8b` stays installed. The earlier measurement (4b no faster, worse plans) was taken
-  without memory pressure; this change trades plan quality for headroom until memory is freed.
+- `qwen3-vl:8b` was deleted from this Mac at the owner's request (`ollama pull qwen3-vl:8b` brings
+  it back). The earlier measurement (4b no faster, worse plans) was taken without memory
+  pressure; this change trades plan quality for headroom until memory is freed.

@@ -303,7 +303,8 @@ do it and also update the docs and devdocs".
 Context: the audit log showed planning slowing from 5–7 s to 50–59 s over a day. Measured on
 the owner's M2 / 16 GB: 9.9 GB of swap in use, about 80,000 pages a second compressed and
 decompressed while idle, and `qwen3-vl:8b` at 3–6 tokens a second.
-**Decision:** `qwen3-vl:4b` becomes the default planner for now; `qwen3-vl:8b` stays installed
-and can be chosen again on the AI Models page. This revisits C-5, which kept 8b because 4b
+**Decision:** `qwen3-vl:4b` becomes the default planner for now, and `qwen3-vl:8b` is deleted
+from this Mac (owner, verbatim: "delete that model"). It can be pulled again and chosen on the
+AI Models page. This revisits C-5, which kept 8b because 4b
 was measured no faster and worse at planning on a Mac that was not short of memory. The owner
 will free memory (restart, fewer big apps) and may switch back.
