@@ -60,7 +60,7 @@ private struct ControlPanelSidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
-                TorusOrbView(mood: model.isArmed ? .listening(level: 0.15) : .alert)
+                GlimOrbView(mood: model.isArmed ? .listening(level: 0.15) : .alert)
                     .frame(width: 34, height: 34)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Glim").font(.system(size: 17, weight: .semibold))

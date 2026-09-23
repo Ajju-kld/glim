@@ -84,7 +84,7 @@ struct NotchPillView: View {
     private var content: some View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
-                TorusOrbView(mood: shownStatus.orbMood ?? .done)
+                GlimOrbView(mood: shownStatus.orbMood ?? .done)
                     .frame(width: Self.orbSize, height: Self.orbSize)
                 VStack(alignment: .leading, spacing: 1) {
                     if detail == nil {

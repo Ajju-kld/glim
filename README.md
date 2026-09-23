@@ -124,15 +124,15 @@ read-only).
 
 ## Using Glim
 
-The pill springs out of the notch with a glowing torus-ring orb, and shrinks back into the
-notch when the request is over.
+The pill springs out of the notch with Glim's orb — a sphere of flowing light whose edge
+ripples like liquid as you speak — and shrinks back into the notch when the request is over.
 
 | Orb | Meaning |
 |---|---|
-| Cyan, swelling with your voice | Listening — your words appear as you speak |
-| Purple, spinning and springing | Planning |
+| Cyan and violet, rippling with your voice | Listening — your words appear as you speak |
+| Magenta, swirling and springing | Planning |
 | Orange, breathing, ✋ | Waiting for you in a panel |
-| Green, springing, progress bar | Acting: "Step 2 of 3 · Click “New Note” in Notes" — ■ stops |
+| Teal, flowing, progress bar | Acting: "Step 2 of 3 · Click “New Note” in Notes" — ■ stops |
 | Green, still, ✓ | Done |
 | Red, ! | Stopped — the popup and the Activity Log say why |
 

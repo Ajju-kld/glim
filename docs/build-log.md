@@ -774,3 +774,19 @@ kept picking the window's zoom button until the mismatch guard stopped it.
 - **Readable log:** task outcomes are worded ("blocked at step 2: …") instead of Swift dumps.
 
 **Gates:** `All gates passed.` — 373 tests in 62 suites.
+
+## 2026-09-23 — The orb, redesigned
+
+The owner wanted something "extraordinary … and visually pleasing" instead of the torus. The
+new `GlimOrbView` is a sphere of flowing light: a 3×3 `MeshGradient` whose inner points drift
+and slowly turn, clipped to a liquid edge that ripples with three travelling waves (stronger
+the louder you speak), with depth shading, a soft gloss highlight, a faint glinting rim, and a
+blurred aura of the palette turning behind it. Each mood has its own four-colour palette;
+planning and acting still spring on the beat, waiting breathes, done and stopped show ✓ and !.
+
+The math is pure and tested (`LiquidOrbGeometry`: a calm orb is a perfect circle, ripple stays
+within 12 % of the radius, the edge closes smoothly, mesh corners stay put while inner points
+flow). `TorusGeometry` and `TorusOrbView` were removed. Checked with `ImageRenderer`
+snapshots of every mood; the first rim was too harsh and was softened.
+
+**Gates:** `All gates passed.` — 374 tests in 62 suites.

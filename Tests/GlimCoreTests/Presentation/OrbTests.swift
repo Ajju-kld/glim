@@ -40,8 +40,8 @@ struct OrbMotionTests {
 
         #expect(loud > quiet)
         #expect(
-            OrbMotion.tubeThickness(for: .listening(level: 1))
-                > OrbMotion.tubeThickness(for: .listening(level: 0)))
+            OrbMotion.ripple(for: .listening(level: 1))
+                > OrbMotion.ripple(for: .listening(level: 0)))
     }
 
     @Test func doneOrbIsStill() {
@@ -53,31 +53,40 @@ struct OrbMotionTests {
     }
 }
 
-struct TorusGeometryTests {
-    @Test func ringsFitInsideTheUnitCircle() {
-        let rings = TorusGeometry.rings(rotation: 0.7, tubeThickness: 0.35)
-
-        #expect(rings.count == TorusGeometry.ringCount)
-        for ring in rings {
-            #expect(ring.points.count == TorusGeometry.pointsPerRing)
-            for point in ring.points {
-                #expect(hypot(point.x, point.y) <= 1.0001)
-            }
-            #expect((0...1).contains(ring.depth))
+struct LiquidOrbGeometryTests {
+    @Test func calmOrbIsAPerfectCircle() {
+        for step in 0..<24 {
+            let angle = Double(step) / 24 * 2 * .pi
+            #expect(LiquidOrbGeometry.edgeRadius(at: angle, time: 3.7, ripple: 0) == 1)
         }
     }
 
-    @Test func ringsAreDrawnBackToFront() {
-        let depths = TorusGeometry.rings(rotation: 1.3, tubeThickness: 0.3).map(\.depth)
+    @Test func rippleStaysInsideTheOrbAndMovesTheEdge() {
+        let radii = (0..<72).map { step in
+            LiquidOrbGeometry.edgeRadius(
+                at: Double(step) / 72 * 2 * .pi, time: 1.3, ripple: 1)
+        }
 
-        #expect(depths == depths.sorted())
+        #expect(radii.allSatisfy { $0 <= 1 && $0 >= 1 - LiquidOrbGeometry.maximumRippleDepth })
+        #expect((radii.max() ?? 0) - (radii.min() ?? 0) > 0.03)
     }
 
-    @Test func rotationMovesTheRings() {
-        let before = TorusGeometry.rings(rotation: 0, tubeThickness: 0.3)
-        let after = TorusGeometry.rings(rotation: 0.2, tubeThickness: 0.3)
+    @Test func edgeIsClosedAndSmooth() {
+        let start = LiquidOrbGeometry.edgeRadius(at: 0, time: 2, ripple: 0.8)
+        let end = LiquidOrbGeometry.edgeRadius(at: 2 * .pi, time: 2, ripple: 0.8)
 
-        #expect(before != after)
+        #expect(abs(start - end) < 0.000_1)
+    }
+
+    @Test func meshCornersStayPutAndInnerPointsFlow() {
+        let before = LiquidOrbGeometry.meshPoints(time: 0, flow: 1)
+        let after = LiquidOrbGeometry.meshPoints(time: 0.8, flow: 1)
+
+        #expect(before.count == 9)
+        #expect(before[0] == SIMD2(0, 0) && before[2] == SIMD2(1, 0))
+        #expect(before[6] == SIMD2(0, 1) && before[8] == SIMD2(1, 1))
+        #expect(before[4] != after[4])
+        #expect(after.allSatisfy { (0...1).contains($0.x) && (0...1).contains($0.y) })
     }
 }
 

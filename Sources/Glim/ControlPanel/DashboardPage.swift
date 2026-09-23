@@ -91,7 +91,7 @@ struct DashboardPage: View {
 
     private var hero: some View {
         HStack(spacing: 22) {
-            TorusOrbView(mood: model.isArmed ? .listening(level: 0.25) : .alert)
+            GlimOrbView(mood: model.isArmed ? .listening(level: 0.25) : .alert)
                 .frame(width: 96, height: 96)
             VStack(alignment: .leading, spacing: 6) {
                 Text(model.isArmed ? "Ready when you are" : "Glim is stopped")

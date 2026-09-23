@@ -1,6 +1,6 @@
 import Foundation
 
-/// How big the orb is and how fast it spins at a moment, for each mood. Pure math, so the
+/// How big the orb is, how fast its colours flow and how much its edge ripples, for each mood. Pure math, so the
 /// animation can be tested without drawing.
 public enum OrbMotion {
     /// Tunable: one spring beat while Glim is processing — a quick swell that settles.
@@ -31,7 +31,7 @@ public enum OrbMotion {
         }
     }
 
-    /// How fast the torus turns, in radians per second.
+    /// How fast the orb's colours flow, in mesh-seconds per second.
     public static func spinSpeed(for mood: OrbMood) -> Double {
         switch mood {
         case .listening(let level): 1.2 + 1.8 * clamped(level)
@@ -39,19 +39,19 @@ public enum OrbMotion {
         case .acting: 2.2
         case .waiting: 0.6
         case .done: 0.4
-        case .alert: 0
+        case .alert: 0.2
         }
     }
 
-    /// The torus tube's thickness as a fraction of the orb's radius.
-    public static func tubeThickness(for mood: OrbMood) -> Double {
+    /// How lively the orb's edge is, 0 (a perfect circle) to 1 (full ripple).
+    public static func ripple(for mood: OrbMood) -> Double {
         switch mood {
-        case .listening(let level): 0.24 + 0.14 * clamped(level)
-        case .thinking: 0.30
-        case .acting: 0.28
-        case .waiting: 0.26
-        case .done: 0.32
-        case .alert: 0.30
+        case .listening(let level): 0.25 + 0.75 * clamped(level)
+        case .thinking: 0.7
+        case .acting: 0.45
+        case .waiting: 0.2
+        case .done: 0.05
+        case .alert: 0.3
         }
     }
 
