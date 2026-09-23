@@ -580,3 +580,19 @@ protection, Laya dependency pinning, homoglyph folding.
 
 **Gates:** `All gates passed.` — 314 tests in 53 suites; strict lint clean; debug and release
 builds warning-free.
+
+## 2026-09-23 — App icons
+
+**Glim:** a dark indigo squircle with the black notch pill, its cyan orb and waveform, and a ✦
+sparkle (`Resources/AppIcon/glim-icon.svg`).
+
+**Testbed:** a warm amber practice target with a ✦ (`Resources/AppIcon/testbed-icon.svg`), so
+the practice app is never mistaken for Glim in the Dock or app switcher.
+
+`scripts/make-icon.sh` renders each SVG to an iconset (16–512 pt, @1x and @2x) with
+`scripts/render-icon.swift`, then packs it with `iconutil` into `Resources/Glim.icns` and
+`Resources/Testbed.icns`. `scripts/build-app.sh` copies them into each bundle as
+`AppIcon.icns` (`CFBundleIconFile = AppIcon`). `scripts/run.sh` now quits running copies first
+so the fresh build (and icon) is the one that opens.
+
+**Gates:** `All gates passed.` — 322 tests in 56 suites; strict lint clean.

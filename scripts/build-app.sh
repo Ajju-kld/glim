@@ -38,9 +38,10 @@ cp Resources/Glim-Info.plist "$GLIM_APP/Contents/Info.plist"
 cp Resources/Glim.icns "$GLIM_APP/Contents/Resources/AppIcon.icns"
 
 echo "==> Assembling $TESTBED_APP"
-mkdir -p "$TESTBED_APP/Contents/MacOS"
+mkdir -p "$TESTBED_APP/Contents/MacOS" "$TESTBED_APP/Contents/Resources"
 cp "$binary_directory/Testbed" "$TESTBED_APP/Contents/MacOS/Testbed"
 cp Resources/Testbed-Info.plist "$TESTBED_APP/Contents/Info.plist"
+cp Resources/Testbed.icns "$TESTBED_APP/Contents/Resources/AppIcon.icns"
 
 echo "==> Signing with: $signing_identity"
 # Inside-out: the helper first, then the app that contains it.

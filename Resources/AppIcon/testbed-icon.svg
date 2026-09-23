@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f59e0b"/>
+      <stop offset="0.6" stop-color="#ea580c"/>
+      <stop offset="1" stop-color="#9a3412"/>
+    </linearGradient>
+    <radialGradient id="topSheen" cx="0.5" cy="0.08" r="0.75">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sparkle" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fde68a"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#background)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#topSheen)"/>
+
+  <circle cx="512" cy="512" r="300" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="44"/>
+  <circle cx="512" cy="512" r="200" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="44"/>
+  <circle cx="512" cy="512" r="100" fill="#ffffff" fill-opacity="0.9"/>
+  <path d="M512 437 C 519 492, 532 505, 587 512 C 532 519, 519 532, 512 587 C 505 532, 492 519, 437 512 C 492 505, 505 492, 512 437 Z" fill="#ea580c"/>
+  <path d="M760 250 C 766 296, 776 306, 822 312 C 776 318, 766 328, 760 374 C 754 328, 744 318, 698 312 C 744 306, 754 296, 760 250 Z" fill="url(#sparkle)"/>
+</svg>

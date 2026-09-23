@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Renders Resources/AppIcon/glim-icon.svg into Resources/Glim.icns.
+# Renders the icon sources in Resources/AppIcon into .icns files in Resources/.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-readonly SOURCE_SVG="Resources/AppIcon/glim-icon.svg"
-readonly ICONSET_DIRECTORY="build/Glim.iconset"
-readonly OUTPUT_ICNS="Resources/Glim.icns"
+render_icon() {
+  local source_svg="$1"
+  local output_icns="$2"
+  local iconset_directory="build/$(basename "$output_icns" .icns).iconset"
+  rm -rf "$iconset_directory"
+  swift scripts/render-icon.swift "$source_svg" "$iconset_directory"
+  iconutil -c icns "$iconset_directory" -o "$output_icns"
+  echo "Wrote $output_icns"
+}
 
-rm -rf "$ICONSET_DIRECTORY"
-swift scripts/render-icon.swift "$SOURCE_SVG" "$ICONSET_DIRECTORY"
-iconutil -c icns "$ICONSET_DIRECTORY" -o "$OUTPUT_ICNS"
-echo "Wrote $OUTPUT_ICNS"
+render_icon Resources/AppIcon/glim-icon.svg Resources/Glim.icns
+render_icon Resources/AppIcon/testbed-icon.svg Resources/Testbed.icns
