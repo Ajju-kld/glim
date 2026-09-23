@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>A glimmer in your notch that runs your Mac — safely.</b><br>
-  Hold <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd>, say what you want, approve the plan, and watch it happen.<br>
+  Hold <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd>, say what you want, and watch it happen — anything risky asks you first.<br>
   Local AI. Native Swift. A kill switch that works even when the app freezes.
 </p>
 
@@ -22,15 +22,16 @@ It is built around one rule:
 > **The AI proposes. Code decides. You approve.**
 
 The model never touches your Mac. It can only *suggest* steps; every suggestion passes a safety
-gate written in plain, tested Swift, and nothing runs until you click **Approve**.
+gate written in plain, tested Swift. Low-risk plans start at once; anything risky waits for your
+click on **Approve**.
 
 ## Try saying
 
 | You say | Glim does |
 |---|---|
-| "Open Notes and write buy milk" | Shows a 3-step plan → you approve → opens Notes, clicks New Note, types "buy milk" |
+| "Open Notes and write buy milk" | Low-risk, so it just runs: opens Notes, clicks New Note, types "buy milk" |
 | "What's on my screen?" | Reads the window and answers aloud — no actions |
-| "Put Notes on the left, Safari on the right and minimize Slack" | Arranges your windows in one approved plan |
+| "Put Notes on the left, Safari on the right and minimize Slack" | Arranges your windows in one plan |
 | "Play music" | Opens Music and presses play |
 | "Delete this note" | 🚫 Blocked — deleting is forbidden, and a red popup says why |
 | "Stop" | Stops everything |
@@ -43,8 +44,9 @@ flowchart LR
     B --> C["Planner<br/>(qwen3-vl on Ollama)"]
     C --> D{"Screen the plan"}
     D -- "forbidden step" --> X["🚫 Red popup"]
-    D -- "ok" --> E["You click<br/>Approve"]
-    E --> F["For each step:<br/>pick a control"]
+    D -- "risky" --> E["You click<br/>Approve"]
+    D -- "low-risk" --> F["For each step:<br/>pick a control"]
+    E --> F
     F --> G["Second opinions<br/>Laya · Jev (opt-in)"]
     G --> H{"Safety gate"}
     H -- "deny" --> X

@@ -15,6 +15,17 @@ struct SafetyChangeClassifierTests {
         #expect(SafetyChangeClassifier.loosenings(from: defaults, to: defaults).isEmpty)
     }
 
+    @Test func startingLowRiskPlansWithoutApprovalLoosens() {
+        var cautious = defaults
+        cautious.safetyPolicy.autoRunsLowRiskPlans = false
+
+        #expect(
+            SafetyChangeClassifier.loosenings(from: cautious, to: defaults) == [
+                .lowRiskPlansStartWithoutApproval
+            ])
+        #expect(SafetyChangeClassifier.loosenings(from: defaults, to: cautious).isEmpty)
+    }
+
     @Test func removingAForbiddenPhraseLoosens() {
         let changes = loosenings { settings in
             settings.safetyPolicy.riskWords.forbidden.removeAll { $0 == "delete" }

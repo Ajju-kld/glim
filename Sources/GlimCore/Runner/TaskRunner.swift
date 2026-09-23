@@ -136,12 +136,16 @@ public struct TaskRunner: Sendable {
         }
         try await audit(
             .planProposed, screenedPlan.steps.map(\.action.summary).joined(separator: " → "))
-        onEvent(.awaitingPlanApproval(screenedPlan))
-        guard await dependencies.decisions.approvePlan(screenedPlan) else {
-            try await audit(.planCancelled, "The person cancelled the plan.")
-            throw RunnerStop.cancelled
+        if LowRiskPlanRule.startsWithoutApproval(screenedPlan, policy: currentPolicy) {
+            try await audit(.planApproved, "Started without asking: every step is low-risk.")
+        } else {
+            onEvent(.awaitingPlanApproval(screenedPlan))
+            guard await dependencies.decisions.approvePlan(screenedPlan) else {
+                try await audit(.planCancelled, "The person cancelled the plan.")
+                throw RunnerStop.cancelled
+            }
+            try await audit(.planApproved, "The person approved the plan.")
         }
-        try await audit(.planApproved, "The person approved the plan.")
 
         let takeoverSupervisor = TakeoverSupervisor(monitor: dependencies.takeoverMonitor)
         takeoverSupervisor.start()

@@ -9,6 +9,7 @@ public enum SettingsLoosening: Sendable, Equatable {
     case jevEnabled
     case jevExclusionRemoved(bundleIdentifier: String)
     case plannerModelChanged(from: String, to: String)
+    case lowRiskPlansStartWithoutApproval
 
     /// One phrase for the Touch ID prompt and the audit log.
     public var explanation: String {
@@ -29,6 +30,8 @@ public enum SettingsLoosening: Sendable, Equatable {
             "let Jev see \(bundleIdentifier)"
         case .plannerModelChanged(let previousModel, let newModel):
             "switch the AI model from \(previousModel) to \(newModel)"
+        case .lowRiskPlansStartWithoutApproval:
+            "start low-risk plans without asking you first"
         }
     }
 }

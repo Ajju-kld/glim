@@ -14,6 +14,19 @@ struct SafetyRulesPage: View {
                 "Removing a phrase or raising a limit makes Glim less safe, so it needs Touch ID. Adding phrases or tightening limits applies right away — even to a task that is running."
             )
             .foregroundStyle(.secondary)
+            GlassCard(title: "Approvals", systemImage: "checkmark.shield") {
+                Toggle(isOn: autoRunBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Start low-risk plans without asking")
+                        Text(
+                            "Opening apps, arranging windows, and clicking or typing what you said in full-control apps. Supervised apps, quitting, Return, risky words and text you didn't say still ask."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+            }
             HStack(alignment: .top, spacing: 16) {
                 phraseCard(
                     title: "Forbidden — always blocked", systemImage: "nosign", tint: .red,
@@ -52,6 +65,15 @@ struct SafetyRulesPage: View {
                 }
             }
         }
+    }
+
+    /// Turning this on needs Touch ID; if the prompt is cancelled the switch springs back.
+    private var autoRunBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.safetyPolicy.autoRunsLowRiskPlans },
+            set: { newValue in
+                model.changeSettings { $0.safetyPolicy.autoRunsLowRiskPlans = newValue }
+            })
     }
 
     private func phraseCard(

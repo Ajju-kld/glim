@@ -628,3 +628,19 @@ Benchmark of 8 real-world requests: 40.4 s → 25.0 s from prompt order alone; t
 (it writes twice the tokens) and worse plans, so 8b stays and 4b was removed.
 
 **Gates:** `All gates passed.` — 337 tests in 56 suites; live suite 4/4 three times.
+
+## 2026-09-23 — Low-risk plans start without asking
+
+The owner asked Glim not to ask approval for everything (decision C-2). `LowRiskPlanRule`
+decides whether a screened plan may skip the Approve panel: every step's tier allows it without
+confirmation, no Return key, no Confirm phrase in a target, and typed text is something the
+person said. `SafetyPolicy.autoRunsLowRiskPlans` (default on) controls it: combined strictly
+mid-task, turning it on is a Touch ID loosening, and settings sealed before it existed still
+load. Safety Rules has the switch. The runner audits "Started without asking: every step is
+low-risk." Every step still goes through the full gate while running.
+
+Tests: 12 rule cases, combination, loosening, back-compatible decoding, and two runner cases
+(low-risk plan runs with no panel; a Send plan still shows the panel with auto-run on). The
+runner tests' base policy keeps auto-run off so they keep checking the panel.
+
+**Gates:** `All gates passed.` — 350 tests in 57 suites.

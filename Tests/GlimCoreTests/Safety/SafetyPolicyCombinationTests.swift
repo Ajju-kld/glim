@@ -17,6 +17,15 @@ struct SafetyPolicyCombinationTests {
         #expect(combined.appTrust.tier(for: .terminal) == .readOnly)
     }
 
+    @Test func planStartsWithoutApprovalOnlyWhenBothPoliciesAllowIt() {
+        var cautious = base
+        cautious.autoRunsLowRiskPlans = false
+
+        #expect(!base.combinedStrictly(with: cautious).autoRunsLowRiskPlans)
+        #expect(!cautious.combinedStrictly(with: base).autoRunsLowRiskPlans)
+        #expect(base.combinedStrictly(with: base).autoRunsLowRiskPlans)
+    }
+
     @Test func unlistedAppsUseTheStricterDefault() {
         var looser = base
         looser.appTrust.defaultTier = .fullControl

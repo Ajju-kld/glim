@@ -22,9 +22,18 @@ struct TaskRunnerTests {
         settleAfterAction: .zero, appLaunchTimeout: .milliseconds(50),
         appLaunchPollInterval: .milliseconds(5))
 
+    /// Plans always go through the approval panel here, so each test can check it; the
+    /// tests that start low-risk plans at once turn `autoRunsLowRiskPlans` back on.
     static var testPolicy: SafetyPolicy {
         var policy = SafetyPolicy.safeDefaults
         policy.limits.minimumSecondsBetweenActions = 0
+        policy.autoRunsLowRiskPlans = false
+        return policy
+    }
+
+    static var autoRunPolicy: SafetyPolicy {
+        var policy = testPolicy
+        policy.autoRunsLowRiskPlans = true
         return policy
     }
 
@@ -249,6 +258,43 @@ struct TaskRunnerTests {
                     == .blocked(
                         .forbiddenAction(matchedPhrase: "delete", elementLabel: "Delete"),
                         stepNumber: 1))
+            #expect(harness.executor.performed.isEmpty)
+        }
+    }
+
+    @Test func lowRiskPlanStartsWithoutThePanel() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = makeHarness(in: directory, modelAnswers: [Self.clickNewItemPlan])
+
+            let outcome = await harness.run(
+                "click new item",
+                runner: harness.makeRunner(policy: ChangingPolicy(Self.autoRunPolicy)))
+
+            #expect(outcome == .completed)
+            #expect(harness.decisions.plansShown.isEmpty)
+            #expect(harness.executor.performed.count == 1)
+            #expect(
+                !harness.events.events.contains { event in
+                    if case .awaitingPlanApproval = event { return true }
+                    return false
+                })
+        }
+    }
+
+    @Test func riskyPlanStillShowsThePanelWithAutoRunOn() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = makeHarness(
+                in: directory,
+                modelAnswers: [
+                    #"{"kind":"task","steps":[{"action":"click","app":"Testbed","target":"Send"}]}"#
+                ],
+                approvesPlans: false)
+
+            let outcome = await harness.run(
+                "send it", runner: harness.makeRunner(policy: ChangingPolicy(Self.autoRunPolicy)))
+
+            #expect(outcome == .cancelled)
+            #expect(harness.decisions.plansShown.count == 1)
             #expect(harness.executor.performed.isEmpty)
         }
     }

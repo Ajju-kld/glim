@@ -230,3 +230,31 @@ and give a good name".
 **Asked:** Is the summary the full shared understanding?
 **Answer:** Yes, update the spec. Then (verbatim): "doucment thsee questions you asked and also
 the answers i given okay" → this document.
+
+## After first use (2026-09-23)
+
+### C-1 · Speed
+User said (verbatim): "why is it taking 10 sedconsd can we make it fast".
+**Decision (measured, no question needed):** fix the causes found in Ollama's log and a
+benchmark: keep the model loaded and preload it, fix the schema field order that made the model
+loop, put stable prompt parts first, pick exactly-labelled targets in code. Keep
+`qwen3-vl:8b` (4b was measured: no faster, worse plans). See the build log.
+
+### C-2 · Fewer approvals
+User said (verbatim): "and dont ask approvla for everything please".
+**Decision:** a plan whose every step is low-risk starts without the Approve panel
+(`LowRiskPlanRule`), on by default. Low-risk means: the app's tier allows the step without
+confirmation (no supervised apps, no quitting), no Return key, no Confirm phrase in a target,
+and any text to type is something the person said. Everything else still shows the plan, and
+every step still passes the full safety gate while running, so a risky control found on screen
+still asks. Changes B-Q3 ("approve plan, confirm risky") for low-risk plans only. Turning the
+switch back on after turning it off needs Touch ID, like any loosening.
+
+### C-3 · Notch orb and control panel
+User said (verbatim): "can you update ui the notch should grow and also it should be a orb i
+dont see that here the torus ring orb when speeking . and when doing thing it spring when
+processing and shrink when processing is done" and "also change the ui of the control pane it
+doesnt look good".
+**Decision:** the pill grows out of the notch with a spring, shows an animated torus-ring orb
+while listening (reacting to the voice level), springs while planning and acting, and shrinks
+back into the notch when done. The control panel gets a visual redesign.

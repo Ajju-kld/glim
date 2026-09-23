@@ -1,9 +1,23 @@
+import Foundation
 import Testing
 
 @testable import GlimCore
 
 struct SafetyPolicyTests {
     let defaults = SafetyPolicy.safeDefaults
+
+    /// Settings sealed before this option existed must still load, not look tampered with.
+    @Test func policySavedBeforeLowRiskAutoRunExistedStillLoads() throws {
+        var savedObject = try #require(
+            try JSONSerialization.jsonObject(with: JSONEncoder().encode(defaults))
+                as? [String: Any])
+        savedObject.removeValue(forKey: "autoRunsLowRiskPlans")
+        let savedData = try JSONSerialization.data(withJSONObject: savedObject)
+
+        let loadedPolicy = try JSONDecoder().decode(SafetyPolicy.self, from: savedData)
+
+        #expect(loadedPolicy == defaults)
+    }
 
     @Test func glimCanNeverActOnItself() {
         #expect(defaults.appTrust.tier(for: .glim) == .neverTouch)

@@ -9,9 +9,23 @@ The AI model never touches your Mac directly. It can only *suggest* steps, and e
 passes through checks written in plain Swift code — code you can read, and that is tested by
 more than a hundred automated tests.
 
-## 1. You approve the plan first
+## 1. You approve anything that isn't low-risk
 
-When you say "open Notes and write buy milk", Glim shows the plan before doing anything:
+When you say "open Notes and write buy milk", every step is low-risk: Notes is a full-control
+app, New Note isn't a risky word, and "buy milk" is what you said. So Glim starts at once and
+the notch shows each step as it runs — touch the keyboard or mouse, or press ⌃⌥⌘K, to stop it.
+
+A plan shows first, before anything happens, when any step:
+
+- is in a **supervised** app, or quits an app;
+- presses Return;
+- clicks or types into a control whose name has a Confirm word (send, share, reply…);
+- types text you didn't say (it came from the AI or the screen, so you see it first).
+
+You can turn off "Start low-risk plans without asking" in **Safety Rules**; then every plan
+shows first. Turning it back on needs Touch ID.
+
+When a plan shows, it looks like this:
 
 ```
 1  Open Notes
