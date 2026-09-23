@@ -18,6 +18,7 @@ struct PermissionsPage: View {
 
     private static let privacySettingsURL =
         "x-apple.systempreferences:com.apple.preference.security?"
+    private static let screenRecordingAnchor = "Privacy_ScreenCapture"
 
     @State private var refreshCount = 0
 
@@ -42,8 +43,14 @@ struct PermissionsPage: View {
             }
             HStack {
                 Button("Ask for Accessibility") { AccessibilityService.promptForTrust() }
+                Button("Ask for Screen Recording") { askForScreenRecording() }
                 Button("Refresh") { refreshCount += 1 }
             }
+            Text(
+                "macOS lists Glim under Screen Recording only after Glim asks once. Screen Recording is optional: Glim only looks at a window when its text isn't enough to answer a question."
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
             Text("To revoke a permission later, switch Glim off in the same System Settings pane.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -67,9 +74,19 @@ struct PermissionsPage: View {
             Permission(
                 name: "Screen Recording",
                 purpose: "Look at a window only when its text isn't enough",
-                isGranted: CGPreflightScreenCaptureAccess(), settingsAnchor: "Privacy_ScreenCapture"
+                isGranted: CGPreflightScreenCaptureAccess(),
+                settingsAnchor: Self.screenRecordingAnchor
             ),
         ]
+    }
+
+    /// Asks macOS for Screen Recording. The first request adds Glim to the list in System
+    /// Settings; after that, macOS only changes it from Settings, so the pane is opened too.
+    private func askForScreenRecording() {
+        if !CGRequestScreenCaptureAccess() {
+            openSettings(anchor: Self.screenRecordingAnchor)
+        }
+        refreshCount += 1
     }
 
     private func openSettings(anchor: String) {
