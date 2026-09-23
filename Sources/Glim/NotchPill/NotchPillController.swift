@@ -6,8 +6,12 @@ import SwiftUI
 /// disturb typing in the app Glim is working in.
 @MainActor
 final class NotchPillController {
+    /// Tunable: how long the shrink-into-the-notch animation gets before the window hides.
+    private static let shrinkDuration = Duration.milliseconds(450)
+
     private let panel: NSPanel
     private let model: AppModel
+    private var hideTask: Task<Void, Never>?
 
     init(model: AppModel) {
         self.model = model
@@ -25,9 +29,13 @@ final class NotchPillController {
         ]
     }
 
+    /// Shows `status`. Hiding lets the pill shrink back into the notch first; clicks pass
+    /// through the window unless it offers ■ to stop.
     func show(_ status: PillStatus) {
+        hideTask?.cancel()
+        panel.ignoresMouseEvents = !status.offersStop
         guard status != .hidden else {
-            panel.orderOut(nil)
+            hideAfterShrinking()
             return
         }
         guard let screen = NSScreen.main ?? NSScreen.screens.first else {
@@ -36,9 +44,27 @@ final class NotchPillController {
         let geometry = NotchGeometry(screen: screen)
         if panel.contentView == nil || panel.frame != geometry.frame {
             panel.contentView = ClickThroughHostingView(
-                rootView: NotchPillView(notchHeight: geometry.notchHeight).environment(model))
+                rootView: NotchPillHost(
+                    notchSize: geometry.notchSize, mergesWithNotch: geometry.hasNotch
+                )
+                .environment(model))
             panel.setFrame(geometry.frame, display: true)
         }
         panel.orderFrontRegardless()
+    }
+
+    private func hideAfterShrinking() {
+        guard panel.isVisible else {
+            return
+        }
+        hideTask = Task { [panel] in
+            do {
+                try await Task.sleep(for: Self.shrinkDuration)
+            } catch {
+                // Cancelled because the pill is showing again, so it must stay on screen.
+                return
+            }
+            panel.orderOut(nil)
+        }
     }
 }

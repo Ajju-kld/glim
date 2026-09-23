@@ -126,14 +126,17 @@ read-only).
 
 ## Using Glim
 
-| Pill | Meaning |
+The pill springs out of the notch with a glowing torus-ring orb, and shrinks back into the
+notch when the request is over.
+
+| Orb | Meaning |
 |---|---|
-| 〰️ cyan | Listening — your words appear as you speak |
-| ◌ purple | Planning |
-| ✋ orange | Waiting for you in a panel |
-| ⚡ green | Acting: "2/3 Click “New Note” in Notes" — ■ stops |
-| ✓ | Done |
-| 🛑 red | Stopped — the popup and the Activity Log say why |
+| Cyan, swelling with your voice | Listening — your words appear as you speak |
+| Purple, spinning and springing | Planning |
+| Orange, breathing, ✋ | Waiting for you in a panel |
+| Green, springing, progress bar | Acting: "Step 2 of 3 · Click “New Note” in Notes" — ■ stops |
+| Green, still, ✓ | Done |
+| Red, ! | Stopped — the popup and the Activity Log say why |
 
 The **control panel** (menu bar → Open Control Panel) has a live Dashboard, **Apps & Trust**
 (drag apps between tiers), **Safety Rules**, **AI Models**, **Permissions** and the

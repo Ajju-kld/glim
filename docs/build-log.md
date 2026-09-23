@@ -644,3 +644,26 @@ Tests: 12 rule cases, combination, loosening, back-compatible decoding, and two 
 runner tests' base policy keeps auto-run off so they keep checking the panel.
 
 **Gates:** `All gates passed.` — 350 tests in 57 suites.
+
+## 2026-09-23 — The notch grows a torus-ring orb
+
+The owner asked for the notch to grow, a torus-ring orb while speaking, a spring while
+processing, and a shrink when done (decision C-3).
+
+- **Pure, tested parts in GlimCore/Presentation:** `OrbMood` (one per pill state),
+  `OrbMotion` (scale, spin speed and tube thickness per mood; a damped spring beat every
+  1.1 s while planning or acting; swelling with the voice level), `TorusGeometry` (rings that
+  circle the torus axis and roll through the tube, projected at a 41° tilt, sorted back to
+  front), `PillLayout` (hidden = exactly the notch; compact while listening silently; full
+  width with words or work) and `PillStatus.offersStop`.
+- **Views:** `TorusOrbView` draws the rings in a `Canvas` with a blurred glow and a halo, and
+  keeps its turn continuous when the speed changes (`OrbSpin`). `NotchPillShape` is flush with
+  the screen top with concave shoulders, so the pill reads as the notch itself growing.
+  `NotchPillView` springs open from the notch, springs between sizes, shows a step progress
+  bar, and shrinks back without bounce. The controller hides the window only after the shrink,
+  and lets clicks pass through unless ■ Stop is showing. `VoiceWaveformView` was removed.
+- **Checked visually** with a scratch renderer outside the repo that snapshots all seven states.
+  The first torus (tube rings at a 60° tilt) read as a coil with a spike; it was redrawn as
+  rolling rings, and the glow thinned so the hole stays dark.
+
+**Gates:** `All gates passed.` — 363 tests in 62 suites.
