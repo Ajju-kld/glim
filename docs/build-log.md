@@ -707,3 +707,20 @@ says it could not read the log. Checked with a scratch renderer outside the repo
 - **Speed:** settle after each action 400 → 250 ms; app and window polling 250 → 100 ms.
 
 **Gates:** `All gates passed.` — 358 tests in 61 suites.
+
+## 2026-09-23 — Crash on the talk key, take two; Dock icon; last-crash card
+
+The first fix (`sizingOptions = []`) was not enough: Glim still crashed 0.4–0.5 s after every
+press of ⌃⌥V (three more reports). The system log (read with `/usr/bin/log` — plain `log` is a
+zsh builtin here, which hid every earlier log search) showed SwiftUI's
+`NSHostingView.updateAnimatedWindowSize` / `updateTransform` re-running window layout from
+inside layout on a borderless window as the pill first appeared. A scratch harness with the real
+model and controller did not crash, so the fix removes the mechanism instead:
+`WindowContainerView` holds the hosting view as a subview, so SwiftUI never sizes or moves the
+window; the pill's view is built once per notch; the control panel uses the same container.
+
+The notch hides Glim's menu-bar icon on a full menu bar, so Glim now also has a **Dock icon**;
+clicking it opens the control panel. The dashboard shows the **last crash** (time, exception
+type) with "Show report".
+
+**Gates:** `All gates passed.` — 358 tests in 61 suites.

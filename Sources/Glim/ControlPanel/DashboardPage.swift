@@ -1,3 +1,4 @@
+import AppKit
 import GlimCore
 import SwiftUI
 
@@ -23,6 +24,8 @@ struct DashboardPage: View {
     @State private var layaStatus = ServiceHealth.Status.checking
     @State private var todaysTasks: [AuditEvent] = []
     @State private var logError: String?
+    @State private var lastCrash: CrashReports.Crash?
+    @State private var crashReadError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -37,6 +40,26 @@ struct DashboardPage: View {
                 ForEach(healthTiles) { tile in
                     healthTileView(tile)
                 }
+            }
+            if let lastCrash {
+                GlassCard(title: "Last crash", systemImage: "exclamationmark.triangle", tint: .red)
+                {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(lastCrash.date, format: .dateTime.day().month().hour().minute())
+                            Text(lastCrash.description)
+                                .font(.callout.monospaced())
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Show report") {
+                            NSWorkspace.shared.activateFileViewerSelecting([lastCrash.reportURL])
+                        }
+                    }
+                }
+            } else if let crashReadError {
+                Label(crashReadError, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.secondary)
             }
             GlassCard(title: "Today", systemImage: "clock", tint: .indigo) {
                 if let logError {
@@ -186,6 +209,12 @@ struct DashboardPage: View {
             logError = nil
         } catch {
             logError = "Could not read today's activity: \(error.localizedDescription)"
+        }
+        do {
+            lastCrash = try CrashReports.latest()
+            crashReadError = nil
+        } catch {
+            crashReadError = "Could not read crash reports: \(error.localizedDescription)"
         }
     }
 }

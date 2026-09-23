@@ -24,11 +24,11 @@ final class ControlPanelWindowController {
     }
 
     private func makeWindow() -> NSWindow {
-        let hostingController = NSHostingController(rootView: ControlPanelView().environment(model))
-        // The orbs animate every frame; if the view also set the window's size limits, AppKit
-        // would re-run layout during layout and crash. The limits are set here instead.
-        hostingController.sizingOptions = []
-        let newWindow = NSWindow(contentViewController: hostingController)
+        let newWindow = NSWindow(
+            contentRect: CGRect(origin: .zero, size: Self.defaultSize),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        newWindow.contentView = WindowContainerView.hosting(
+            ControlPanelView().environment(model), size: Self.defaultSize)
         newWindow.title = "Glim"
         newWindow.styleMask = [
             .titled, .closable, .miniaturizable, .resizable, .fullSizeContentView,

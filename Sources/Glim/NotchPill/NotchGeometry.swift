@@ -3,7 +3,7 @@ import GlimCore
 
 /// Where the pill's window sits: flush with the top of the screen and centered on the notch,
 /// or just under the menu bar on screens without a notch.
-struct NotchGeometry {
+struct NotchGeometry: Equatable {
     /// Tunable: gap below the menu bar on screens without a notch.
     static let floatingTopGap: CGFloat = 8
     /// Tunable: on screens without a notch, the pill shrinks to a sliver this wide.

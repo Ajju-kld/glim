@@ -12,6 +12,8 @@ final class NotchPillController {
     private let panel: NSPanel
     private let model: AppModel
     private var hideTask: Task<Void, Never>?
+    /// The notch the current pill view was built for; the view is rebuilt only if it changes.
+    private var builtForGeometry: NotchGeometry?
 
     init(model: AppModel) {
         self.model = model
@@ -42,17 +44,17 @@ final class NotchPillController {
             return
         }
         let geometry = NotchGeometry(screen: screen)
-        if panel.contentView == nil || panel.frame != geometry.frame {
-            let hostingView = ClickThroughHostingView(
-                rootView: NotchPillHost(
-                    notchSize: geometry.notchSize, mergesWithNotch: geometry.hasNotch
-                )
-                .environment(model))
-            // The orb animates every frame; if the view also sized the window, AppKit would
-            // re-run layout during layout and crash. The window has a fixed frame instead.
-            hostingView.sizingOptions = []
-            panel.contentView = hostingView
-            panel.setFrame(geometry.frame, display: true)
+        if builtForGeometry?.notchSize != geometry.notchSize
+            || builtForGeometry?.hasNotch != geometry.hasNotch
+        {
+            panel.contentView = WindowContainerView.hosting(
+                NotchPillHost(notchSize: geometry.notchSize, mergesWithNotch: geometry.hasNotch)
+                    .environment(model),
+                size: geometry.frame.size)
+            builtForGeometry = geometry
+        }
+        if panel.frame != geometry.frame {
+            panel.setFrame(geometry.frame, display: false)
         }
         panel.orderFrontRegardless()
     }

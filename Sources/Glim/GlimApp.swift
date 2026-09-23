@@ -24,4 +24,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         Task { await model.start() }
     }
+
+    /// Clicking Glim's Dock icon opens the control panel, so Glim is reachable even when the
+    /// notch hides its menu-bar icon.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)
+        -> Bool
+    {
+        model.openControlPanel()
+        return false
+    }
 }
