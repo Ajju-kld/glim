@@ -28,7 +28,6 @@ struct AppsTrustPage: View {
     private static let tierMenuWidth: CGFloat = 150
 
     @Environment(AppModel.self) private var model
-    @State private var installedApps: [InstalledApp] = []
     @State private var searchText = ""
     @State private var filter = Filter.all
 
@@ -46,7 +45,7 @@ struct AppsTrustPage: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 320)
             let shownEntries = visible(entries)
-            VStack(spacing: 0) {
+            LazyVStack(spacing: 0) {
                 if shownEntries.isEmpty {
                     Text("No apps match.")
                         .foregroundStyle(.secondary)
@@ -68,9 +67,7 @@ struct AppsTrustPage: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .task {
-            installedApps = WorkspaceAppCatalog().installedApps()
-        }
+        .task { await model.refreshInstalledApps() }
     }
 
     // MARK: - Filter
@@ -136,8 +133,10 @@ struct AppsTrustPage: View {
 
     @ViewBuilder
     private func appIcon(for entry: AppEntry) -> some View {
-        if let bundleURL = entry.bundleURL {
-            Image(nsImage: NSWorkspace.shared.icon(forFile: bundleURL.path(percentEncoded: false)))
+        if let bundleURL = entry.bundleURL,
+            let icon = model.appIconsByPath[bundleURL.path(percentEncoded: false)]
+        {
+            Image(nsImage: icon)
                 .resizable()
                 .frame(width: Self.iconSize, height: Self.iconSize)
         } else {
@@ -184,6 +183,7 @@ struct AppsTrustPage: View {
 
     private var allEntries: [AppEntry] {
         let trust = model.settings.safetyPolicy.appTrust
+        let installedApps = model.installedApps
         let installedByIdentifier = Dictionary(
             installedApps.map { ($0.bundleIdentifier, $0) }, uniquingKeysWith: { first, _ in first }
         )

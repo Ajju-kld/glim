@@ -21,6 +21,8 @@ struct PermissionsPage: View {
     private static let screenRecordingAnchor = "Privacy_ScreenCapture"
 
     @State private var refreshCount = 0
+    /// Checked when the page opens and on Refresh, not on every redraw.
+    @State private var permissions: [Permission] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -55,10 +57,10 @@ struct PermissionsPage: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
-        .id(refreshCount)
+        .task(id: refreshCount) { permissions = Self.currentPermissions() }
     }
 
-    private var permissions: [Permission] {
+    private static func currentPermissions() -> [Permission] {
         [
             Permission(
                 name: "Microphone", purpose: "Hear you while the talk key is held",

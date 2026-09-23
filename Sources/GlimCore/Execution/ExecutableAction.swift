@@ -6,11 +6,17 @@ public struct ExecutableAction: Sendable, Equatable {
     public let app: ResolvedApp
     /// The element chosen for `click` or `typeText`.
     public let targetElement: UIElementSnapshot?
+    /// The point found by sight, for a `click` whose control could not be read.
+    public let visualTarget: VisualTarget?
 
     /// Creates an executable action.
-    public init(step: StepAction, app: ResolvedApp, targetElement: UIElementSnapshot?) {
+    public init(
+        step: StepAction, app: ResolvedApp, targetElement: UIElementSnapshot?,
+        visualTarget: VisualTarget? = nil
+    ) {
         self.step = step
         self.app = app
         self.targetElement = targetElement
+        self.visualTarget = visualTarget
     }
 }

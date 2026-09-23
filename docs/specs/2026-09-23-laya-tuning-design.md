@@ -74,6 +74,21 @@ picks, raise fewer false alarms. Laya stays a checker; it never picks for Glim.
 - `services/laya/glim_serve.py` starts the Laya service with the active checkpoint;
   `scripts/start-laya.sh` runs it. `scripts/train-laya.sh --rollback` removes `active.json`.
 
+## Update — Laya also picks (decision C-7)
+
+`LayaPicker` now lets a confident Laya (≥ 0.80) choose the control before the language model is
+asked, so the data and the score also serve that job:
+
+- The picker's question carries the app name and window title, like the checker's and the
+  saved examples', so training and use see the same inputs.
+- Each example records `pickedBy` (`exactLabel`, `onlyField`, `planMatch`, `laya`,
+  `languageModel`; absent in older examples). The review page marks Laya's own picks. A Laya
+  pick the owner only confirmed counts half in the loss, so Laya doesn't mostly learn from
+  agreeing with itself.
+- The score adds **pick coverage** (share of test examples Laya would pick at ≥ 0.80) and
+  **pick precision** (share of those that are right). Promotion also requires pick precision
+  not to drop.
+
 ## Unchanged safety
 
 Laya's answer can still only add a confirmation, never remove one. Training data is local,
@@ -89,4 +104,4 @@ masked and deletable. Nothing in this pipeline sends data off the Mac.
 
 ## Out of scope
 
-Training the encoder (approach B); Laya picking targets for Glim; any cloud GPU.
+Training the encoder (approach B); any cloud GPU.

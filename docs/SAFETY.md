@@ -62,6 +62,14 @@ but its code signature doesn't check out — never gets more than read-only.
 
 Before every click, Glim reads the button's label, description and tooltip.
 
+**Clicks found by sight always ask.** When an app shows Glim no usable control for a click
+(or none of them fits the step), the local model looks at a screenshot of the app's window and
+points at a spot. Glim can't read a label there, so it shows you the screenshot with the spot
+marked and what the model says is there, and clicks only if you allow it — even with "Ask only
+before dangerous steps" on. It never clicks by sight in a window's title bar, never types by
+sight, and stops if the window moved after the screenshot. The same forbidden and risky words
+are checked on what the model says it sees.
+
 - 🚫 **Forbidden — always blocked:** delete, remove, trash, erase, empty, wipe, format,
   uninstall, reset, discard, clear all, clear history, don't save, replace, overwrite, revert,
   buy, pay, purchase, order, checkout, transfer, subscribe, unsubscribe, cancel subscription,
@@ -116,7 +124,8 @@ task**. A blocked action never gets a second try.
 
 ## 5. Second opinions
 
-A second model double-checks every click the main model picks:
+A second model double-checks every click the main model picks from a window's controls
+(a click found by sight isn't sent to them — it always asks you instead):
 
 - **Laya** runs locally on your Mac.
 - **Jev** runs in TypeSafe's cloud — **off by default**. If you turn it on, your goal, the app

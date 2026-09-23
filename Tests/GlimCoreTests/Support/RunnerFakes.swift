@@ -68,16 +68,30 @@ final class ScriptedScreenReader: ScreenReading {
     }
 }
 
+/// Counts captures and returns a small fake image of a window at `windowFrame`; each capture's
+/// bytes differ, so a click found by sight counts as changing the window.
 final class RecordingScreenshotter: ScreenshotCapturing {
+    static let defaultWindowFrame = CGRect(x: 100, y: 100, width: 800, height: 600)
+
     private let captureCount = Mutex(0)
+    private let windowFrame: CGRect
+
+    init(windowFrame: CGRect = defaultWindowFrame) {
+        self.windowFrame = windowFrame
+    }
 
     var captures: Int {
         captureCount.withLock { $0 }
     }
 
-    func capturePNG(of app: ResolvedApp) async throws(ScreenReadingError) -> Data {
-        captureCount.withLock { $0 += 1 }
-        return Data([0x89, 0x50, 0x4E, 0x47])
+    func captureFrontWindow(of app: ResolvedApp) async throws(ScreenReadingError) -> WindowCapture {
+        let captureNumber = captureCount.withLock { count in
+            count += 1
+            return count
+        }
+        return WindowCapture(
+            pngData: Data([0x89, 0x50, 0x4E, 0x47, UInt8(truncatingIfNeeded: captureNumber)]),
+            windowFrame: windowFrame)
     }
 }
 

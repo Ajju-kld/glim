@@ -47,7 +47,8 @@ enum RunnerFactory {
         let dependencies = TaskRunnerDependencies(
             planner: Planner(
                 languageModel: OllamaClient(
-                    transport: transport, modelName: settings.plannerModelName)),
+                    transport: transport, modelName: settings.plannerModelName),
+                fastPicker: LayaPicker(transport: transport)),
             screenReader: services.accessibility,
             screenshotter: WindowScreenshotter(),
             appResolver: services.appResolver,

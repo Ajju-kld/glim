@@ -10,6 +10,8 @@ public struct ProposedAction: Sendable, Equatable {
     public let text: String?
     /// The key to press, for `pressKey`.
     public let key: AllowedKey?
+    /// The point found by sight, for a `click` whose control could not be read.
+    public let visualTarget: VisualTarget?
 
     /// Creates a proposed action. Only the parameters that apply to `kind` are set.
     public init(
@@ -17,12 +19,14 @@ public struct ProposedAction: Sendable, Equatable {
         targetApp: AppIdentity,
         targetElement: UIElementSnapshot? = nil,
         text: String? = nil,
-        key: AllowedKey? = nil
+        key: AllowedKey? = nil,
+        visualTarget: VisualTarget? = nil
     ) {
         self.kind = kind
         self.targetApp = targetApp
         self.targetElement = targetElement
         self.text = text
         self.key = key
+        self.visualTarget = visualTarget
     }
 }

@@ -1,7 +1,8 @@
 import GlimCore
 import SwiftUI
 
-/// "Allow this step?" — the app, the control, the exact text, and every reason Glim is asking.
+/// "Allow this step?" — the app, the control (or, for a click found by sight, the screenshot
+/// with the spot marked), the exact text, and every reason Glim is asking.
 struct ConfirmationView: View {
     let request: ConfirmationRequest
     let onDecision: @MainActor (Bool) -> Void
@@ -37,6 +38,12 @@ struct ConfirmationView: View {
                         Text("“\(elementLabel)”")
                     }
                 }
+                if let visualClick = request.visualClick {
+                    GridRow {
+                        Text("Seen").foregroundStyle(.secondary)
+                        Text("“\(visualClick.target.description)”")
+                    }
+                }
                 if let textToType = request.textToType {
                     GridRow(alignment: .top) {
                         Text("Text").foregroundStyle(.secondary)
@@ -48,6 +55,9 @@ struct ConfirmationView: View {
                             .background(.quaternary, in: .rect(cornerRadius: 8))
                     }
                 }
+            }
+            if let visualClick = request.visualClick {
+                VisualClickPreview(visualClick: visualClick)
             }
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(Array(request.reasons.enumerated()), id: \.offset) { _, reason in

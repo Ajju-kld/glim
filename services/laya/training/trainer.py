@@ -11,7 +11,7 @@ import mlx.optimizers as optim
 from mlx.utils import tree_flatten
 from laya_mlx.agent import collate_items
 
-from training.examples import choice_question
+from training.examples import choice_question, training_weight
 
 # Tunable: small steps keep the published model's skill while it learns Mac apps.
 LEARNING_RATE = 1e-4
@@ -28,18 +28,25 @@ def freeze_encoder(model) -> None:
         part.unfreeze()
 
 
-def choice_loss(model, batch: dict, correct_indices: mx.array) -> mx.array:
+def choice_loss(
+    model, batch: dict, correct_indices: mx.array, example_weights: mx.array | None = None
+) -> mx.array:
+    """Cross-entropy on the correct option, averaged by each example's weight."""
     logits, _ = model(**batch)
-    return nn.losses.cross_entropy(logits, correct_indices, reduction="mean")
+    losses = nn.losses.cross_entropy(logits, correct_indices, reduction="none")
+    if example_weights is None:
+        return losses.mean()
+    return (losses * example_weights).sum() / example_weights.sum()
 
 
 def train_steps(model, batches, learning_rate: float = LEARNING_RATE) -> list[float]:
-    """One optimizer step per (batch, correct indices); returns each step's loss."""
+    """One optimizer step per (batch, correct indices, example weights or None); returns each
+    step's loss."""
     optimizer = optim.Adam(learning_rate=learning_rate)
     loss_and_gradients = nn.value_and_grad(model, choice_loss)
     losses = []
-    for batch, correct_indices in batches:
-        loss, gradients = loss_and_gradients(model, batch, correct_indices)
+    for batch, correct_indices, example_weights in batches:
+        loss, gradients = loss_and_gradients(model, batch, correct_indices, example_weights)
         optimizer.update(model, gradients)
         mx.eval(model.parameters(), optimizer.state)
         losses.append(loss.item())
@@ -47,19 +54,25 @@ def train_steps(model, batches, learning_rate: float = LEARNING_RATE) -> list[fl
 
 
 def example_batches(agent, examples: list[dict], batch_size: int = BATCH_SIZE):
-    """Batches in Laya's own input format, with the index of each correct option."""
+    """Batches in Laya's own input format, with the index of each correct option and each
+    example's weight."""
     for start in range(0, len(examples), batch_size):
         chunk = examples[start : start + batch_size]
-        items, correct_indices = [], []
+        items, correct_indices, example_weights = [], [], []
         for example in chunk:
             state, questions = choice_question(example)
             prepared, internal = agent.prepare(state, questions)
             items.append(prepared[0])
             option_numbers = list(internal[0]["crit"])
             correct_indices.append(option_numbers.index(example["review"]["correctOption"]))
+            example_weights.append(training_weight(example))
         batch = collate_items(
             items, agent.tok.pad_token_id, max_length=agent.cfg.get("max_len", 512))
-        yield {key: mx.array(value) for key, value in batch.items()}, mx.array(correct_indices)
+        yield (
+            {key: mx.array(value) for key, value in batch.items()},
+            mx.array(correct_indices),
+            mx.array(example_weights),
+        )
 
 
 def train(agent, examples: list[dict], epochs: int = EPOCHS) -> list[float]:

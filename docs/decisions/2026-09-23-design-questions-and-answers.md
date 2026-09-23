@@ -268,3 +268,31 @@ supervised app (the owner's own tier choice from B-Q5). Doubts about the AI — 
 differs from the plan's wording, a checker that disagrees or is offline — no longer ask; they
 are logged. Forbidden steps are still blocked. Changes B-Q3 and the checker-offline rule
 (B-Q17) while the switch is on; turning the switch off restores both.
+
+### C-5 · Replace the planner model?
+User said (verbatim): "delte the old ollama model and download new".
+Asked: which model replaces `qwen3-vl:8b`, and, after the build log showed `qwen3-vl:4b` had
+already been measured here (no faster, worse plans), whether to still switch.
+**Decision:** keep `qwen3-vl:8b` as the planner; nothing is deleted and 4b is not installed.
+
+### C-6 · Visual ability
+User said (verbatim): "need visual ability also".
+Asked: what vision should add, given qwen3-vl already reads a screenshot for questions when an
+app shows too little text.
+**Decision:** see and click. For apps with no usable accessibility controls, qwen3-vl looks at
+a screenshot of the front window and picks a point to click. Every such click asks for
+confirmation, because the safety gate cannot check a label it never read.
+
+### C-7 · Laya training data now that Laya also picks
+User said (verbatim): "yes fix all teh steps", after being shown three gaps in the training
+data once Laya started picking controls (LayaPicker).
+**Decision:**
+1. The picker asks Laya with the app name and window title, exactly as the checker and the
+   saved examples do, so Laya is trained and asked on the same inputs.
+2. Every example records who picked the control (`pickedBy`: exact label, only field, plan
+   match, Laya or the language model). Review marks Laya's own picks, and in training a Laya
+   pick the owner merely confirmed counts half (`LAYA_SELF_CONFIRMED_WEIGHT`).
+3. Scoring adds pick coverage and pick precision at the picker's 0.80 threshold; a checkpoint
+   whose confident picks are right less often is never promoted.
+4. Glim sends Laya one throwaway question at launch, so the first real pick doesn't hit the
+   3-second timeout while Laya loads (measured: 3.4 s cold, 50–105 ms warm).

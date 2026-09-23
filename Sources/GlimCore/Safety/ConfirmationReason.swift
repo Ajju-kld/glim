@@ -8,6 +8,8 @@ public enum ConfirmationReason: Sendable, Equatable {
     case checkerOffline(checkerName: String)
     case supervisedApp(appName: String)
     case quitApp(appName: String)
+    /// The click was found on a screenshot, not on a labelled control the gate could check.
+    case visualClick(description: String)
 
     /// Whether this reason is a danger to the person — something that sends, submits or
     /// closes, or an app they chose to supervise. The others (a pick that differs from the plan's
@@ -15,7 +17,7 @@ public enum ConfirmationReason: Sendable, Equatable {
     /// with ``SafetyPolicy/asksOnlyBeforeDangerousSteps`` on they don't ask.
     public var isDangerous: Bool {
         switch self {
-        case .riskyWord, .pressReturn, .supervisedApp, .quitApp: true
+        case .riskyWord, .pressReturn, .supervisedApp, .quitApp, .visualClick: true
         case .planMismatch, .checkerDisagrees, .checkerOffline: false
         }
     }
@@ -38,6 +40,8 @@ public enum ConfirmationReason: Sendable, Equatable {
             "\(appName) is supervised: every step asks you."
         case .quitApp(let appName):
             "Quitting \(appName) may close unsaved work."
+        case .visualClick(let description):
+            "Glim found “\(description)” by sight, not from a labelled control. Check the marked spot."
         }
     }
 }

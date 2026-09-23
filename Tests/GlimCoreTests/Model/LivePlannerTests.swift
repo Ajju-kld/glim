@@ -62,7 +62,7 @@ struct LivePlannerTests {
             for: .click(appName: "Notes", target: "New Note"), goal: context.goal, among: elements)
         print("LIVE pick (\(ContinuousClock.now - started)): \(choice)")
 
-        #expect(choice == .element(elements[1]))
+        #expect(choice == .element(elements[1], pickedBy: .exactLabel))
     }
 
     @Test(arguments: [

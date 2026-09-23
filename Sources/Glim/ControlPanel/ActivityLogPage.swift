@@ -3,8 +3,20 @@ import SwiftUI
 
 /// Everything Glim heard, planned, checked and did, newest first. Kept 7 days, at most 5 MB.
 struct ActivityLogPage: View {
+    /// One event with a stable identity: its position in the log, oldest first, so new
+    /// entries don't renumber the old ones.
+    private struct LogRow: Identifiable {
+        let id: Int
+        let event: AuditEvent
+    }
+
+    /// Tunable: most rows drawn at once; searching narrows the rest.
+    private static let maximumShownRows = 300
+
     @Environment(AppModel.self) private var model
-    @State private var events: [AuditEvent] = []
+    @State private var rows: [LogRow] = []
+    @State private var shownRows: [LogRow] = []
+    @State private var matchingRowCount = 0
     @State private var searchText = ""
     @State private var loadError: String?
     @State private var isConfirmingClear = false
@@ -22,8 +34,16 @@ struct ActivityLogPage: View {
             if let loadError {
                 Label(loadError, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
             }
+            if matchingRowCount > shownRows.count {
+                Text(
+                    "Showing the newest \(shownRows.count) of \(matchingRowCount) entries. Search to find older ones."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
             LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(filteredEvents.enumerated()), id: \.offset) { _, event in
+                ForEach(shownRows) { row in
+                    let event = row.event
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text(event.timestamp, format: .dateTime.hour().minute().second())
                             .font(.caption.monospacedDigit())
@@ -44,25 +64,33 @@ struct ActivityLogPage: View {
             .panelSurface(cornerRadius: 16)
         }
         .task { await load() }
+        .onChange(of: searchText) { applySearch() }
         .confirmationDialog("Delete the whole activity log?", isPresented: $isConfirmingClear) {
             Button("Clear log", role: .destructive) { Task { await clear() } }
         }
     }
 
-    private var filteredEvents: [AuditEvent] {
-        guard !searchText.isEmpty else {
-            return events
-        }
-        return events.filter {
-            $0.summary.localizedCaseInsensitiveContains(searchText)
-                || $0.kind.rawValue.localizedCaseInsensitiveContains(searchText)
-        }
+    /// Filters once per search change or load, not on every redraw.
+    private func applySearch() {
+        let matchingRows =
+            searchText.isEmpty
+            ? rows
+            : rows.filter {
+                $0.event.summary.localizedCaseInsensitiveContains(searchText)
+                    || $0.event.kind.rawValue.localizedCaseInsensitiveContains(searchText)
+            }
+        matchingRowCount = matchingRows.count
+        shownRows = Array(matchingRows.prefix(Self.maximumShownRows))
     }
 
     private func load() async {
         do {
-            events = try await model.services.auditLog.readAllEvents().reversed()
+            let oldestFirst = try await model.services.auditLog.readAllEvents()
+            rows = oldestFirst.enumerated().reversed().map {
+                LogRow(id: $0.offset, event: $0.element)
+            }
             loadError = nil
+            applySearch()
         } catch {
             loadError = "Could not read the log: \(error)"
         }
@@ -71,7 +99,8 @@ struct ActivityLogPage: View {
     private func clear() async {
         do {
             try await model.services.auditLog.clear()
-            events = []
+            rows = []
+            applySearch()
         } catch {
             loadError = "Could not clear the log: \(error)"
         }

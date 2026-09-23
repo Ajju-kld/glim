@@ -16,10 +16,17 @@ struct GlimOrbView: View {
     private static let swirlRate = 0.35
 
     let mood: OrbMood
+    /// The most frames drawn per second; nil follows the display, as the notch orb does.
+    var maximumFramesPerSecond: Double?
+    /// Holds the orb still, such as while its window is in the background.
+    var isPaused = false
     @State private var flowClock = OrbSpin()
 
     var body: some View {
-        TimelineView(.animation) { timeline in
+        TimelineView(
+            .animation(
+                minimumInterval: maximumFramesPerSecond.map { 1 / $0 }, paused: isPaused)
+        ) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
             let flowTime = flowClock.angle(at: time, speed: OrbMotion.spinSpeed(for: mood))
             GeometryReader { geometry in

@@ -24,8 +24,10 @@ public struct WindowScreenshotter: ScreenshotCapturing {
         self.mayPromptForPermission = mayPromptForPermission
     }
 
-    /// Captures the app's frontmost normal on-screen window.
-    public func capturePNG(of app: ResolvedApp) async throws(ScreenReadingError) -> Data {
+    /// Captures the app's frontmost normal on-screen window and its frame.
+    public func captureFrontWindow(of app: ResolvedApp) async throws(ScreenReadingError)
+        -> WindowCapture
+    {
         guard
             CGPreflightScreenCaptureAccess()
                 || (mayPromptForPermission && CGRequestScreenCaptureAccess())
@@ -36,8 +38,9 @@ public struct WindowScreenshotter: ScreenshotCapturing {
             throw .appNotRunning(appName: app.identity.displayName)
         }
         let image: CGImage
+        let windowFrame: CGRect
         do {
-            image = try await Self.captureFrontWindow(
+            (image, windowFrame) = try await Self.captureFrontWindow(
                 of: processIdentifier, appName: app.identity.displayName)
         } catch let readingError as ScreenReadingError {
             throw readingError
@@ -45,14 +48,15 @@ public struct WindowScreenshotter: ScreenshotCapturing {
             throw .captureFailed(reason: error.localizedDescription)
         }
         do {
-            return try Self.pngData(from: image)
+            return WindowCapture(pngData: try Self.pngData(from: image), windowFrame: windowFrame)
         } catch {
             throw .captureFailed(reason: "Could not encode the screenshot.")
         }
     }
 
+    /// The window's image and its frame in global screen points (top-left origin).
     private static func captureFrontWindow(of processIdentifier: pid_t, appName: String)
-        async throws -> CGImage
+        async throws -> (image: CGImage, frame: CGRect)
     {
         let shareableContent = try await SCShareableContent.excludingDesktopWindows(
             true, onScreenWindowsOnly: true)
@@ -70,9 +74,10 @@ public struct WindowScreenshotter: ScreenshotCapturing {
         configuration.width = pixelSize.width
         configuration.height = pixelSize.height
         configuration.showsCursor = false
-        return try await SCScreenshotManager.captureImage(
+        let image = try await SCScreenshotManager.captureImage(
             contentFilter: SCContentFilter(desktopIndependentWindow: window),
             configuration: configuration)
+        return (image, window.frame)
     }
 
     /// The capture size: the window at Retina scale, shrunk so the longest side fits the limit.

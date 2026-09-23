@@ -10,16 +10,19 @@ public struct ConfirmationRequest: Sendable, Equatable {
     public let textToType: String?
     /// Every reason Glim is asking.
     public let reasons: [ConfirmationReason]
+    /// For a click found by sight: the screenshot and the point, so the person sees the spot.
+    public let visualClick: VisualClick?
 
     /// Creates a confirmation request.
     public init(
         step: ScreenedStep, appName: String, elementLabel: String?, textToType: String?,
-        reasons: [ConfirmationReason]
+        reasons: [ConfirmationReason], visualClick: VisualClick? = nil
     ) {
         self.step = step
         self.appName = appName
         self.elementLabel = elementLabel
         self.textToType = textToType
         self.reasons = reasons
+        self.visualClick = visualClick
     }
 }

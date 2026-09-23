@@ -23,9 +23,9 @@ struct ControlPanelView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .panelSurface(cornerRadius: 12, tint: .blue)
                     }
+                    // Pages swap instantly: animating the swap laid out both pages at once
+                    // and animated the scroll height, which made switching stutter.
                     page(for: model.selectedPage)
-                        .id(model.selectedPage)
-                        .transition(.opacity.combined(with: .offset(y: 8)))
                 }
                 .padding(.horizontal, 32)
                 .padding(.top, 44)
@@ -36,7 +36,6 @@ struct ControlPanelView: View {
             .scrollContentBackground(.hidden)
         }
         .background(PanelBackdrop())
-        .animation(.smooth(duration: 0.25), value: model.selectedPage)
         .preferredColorScheme(.dark)
     }
 
@@ -61,7 +60,8 @@ private struct ControlPanelSidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
-                GlimOrbView(mood: model.isArmed ? .listening(level: 0.15) : .alert)
+                // Still: a moving orb this small isn't worth redrawing the window every frame.
+                GlimOrbView(mood: model.isArmed ? .listening(level: 0.15) : .alert, isPaused: true)
                     .frame(width: 34, height: 34)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Glim").font(.system(size: 17, weight: .semibold))
@@ -107,6 +107,9 @@ private struct ControlPanelSidebar: View {
 }
 
 private struct SidebarRow: View {
+    /// Tunable: how long the selection highlight takes to move.
+    private static let highlightAnimation = Animation.smooth(duration: 0.15)
+
     let page: ControlPanelPage
     let isSelected: Bool
     let onSelect: () -> Void
@@ -136,6 +139,7 @@ private struct SidebarRow: View {
                 in: .rect(cornerRadius: 9)
             )
             .contentShape(.rect)
+            .animation(Self.highlightAnimation, value: isSelected)
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }

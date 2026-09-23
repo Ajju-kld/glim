@@ -32,6 +32,17 @@ final class AppModel {
     var layaExamples: [LayaExample] = []
     var layaTrainingMessage: String?
     var selectedPage = ControlPanelPage.dashboard
+    /// Control panel data kept between page visits, so a page opens with its last known
+    /// values instead of loading them again on the main thread. See `AppModel+ControlPanel`.
+    var installedApps: [InstalledApp] = []
+    var appIconsByPath: [String: NSImage] = [:]
+    var isScanningInstalledApps = false
+    var ollamaStatus = ServiceHealth.Status.checking
+    var layaStatus = ServiceHealth.Status.checking
+    var lastCrash: CrashReports.Crash?
+    var crashReadError: String?
+    var todaysTasks: [AuditEvent] = []
+    var todaysTasksError: String?
 
     let services = LiveServices()
     let watchdogSupervisor = WatchdogSupervisor()
@@ -198,6 +209,7 @@ final class AppModel {
     /// Loads the planner model while the person is still talking. A model Ollama has unloaded
     /// takes 10+ seconds to load, which would otherwise all be spent after they finish.
     private func preloadPlannerModel() {
+        preloadLaya()
         let client = OllamaClient(
             transport: PolicyEnforcingTransport(
                 base: services.transport, policy: NetworkPolicy(isJevEnabled: false)),
@@ -210,6 +222,17 @@ final class AppModel {
                 Self.logger.error(
                     "Could not preload the planner model: \(error.explanation, privacy: .public)")
             }
+        }
+    }
+
+    /// Asks Laya one throwaway question so its first real pick doesn't time out while it loads.
+    /// Laya being down is fine: picking falls back to the planner model.
+    private func preloadLaya() {
+        let picker = LayaPicker(
+            transport: PolicyEnforcingTransport(
+                base: services.transport, policy: NetworkPolicy(isJevEnabled: false)))
+        Task {
+            await picker.warmUp()
         }
     }
 

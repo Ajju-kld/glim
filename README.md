@@ -41,6 +41,9 @@ gate written in plain, tested Swift. Plans start at once; Glim asks only before 
 - **Clearer stops.** Instead of "the AI failed 3 times", Glim says what happened: the button
   is greyed out, the window shows no controls, the control changed before it could act (and
   what changed), or the plan tried to click a window's close button.
+- **See and click.** When an app shows no usable controls for a click, the local model finds
+  the spot on a screenshot of the window. Every click found this way asks you first, with the
+  spot marked on the screenshot. Typing still needs a readable field.
 - **Read check.** Apps & Trust → **Check open apps** reads every open app's window, the way a
   task would, and shows how many controls Glim can see in each.
 - **Laya training.** Teach the local Laya checker your Mac apps: Glim can save the steps Laya

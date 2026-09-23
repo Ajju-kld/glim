@@ -32,9 +32,20 @@ class TrainerTests(unittest.TestCase):
         batch, correct = tiny_batch()
         loss_before = choice_loss(model, batch, correct).item()
 
-        train_steps(model, [(batch, correct)] * 30, learning_rate=1e-3)
+        train_steps(model, [(batch, correct, None)] * 30, learning_rate=1e-3)
 
         self.assertLess(choice_loss(model, batch, correct).item(), loss_before)
+
+    def test_zero_weight_examples_do_not_count_toward_the_loss(self):
+        model = tiny_model()
+        batch, correct = tiny_batch()
+        only_first = mx.array([1.0, 0.0, 0.0, 0.0])
+        first_alone = {key: value[:1] for key, value in batch.items()}
+
+        weighted = choice_loss(model, batch, correct, only_first).item()
+        alone = choice_loss(model, first_alone, correct[:1]).item()
+
+        self.assertAlmostEqual(weighted, alone, places=4)
 
     def test_encoder_weights_do_not_change(self):
         model = tiny_model()
@@ -42,7 +53,7 @@ class TrainerTests(unittest.TestCase):
         batch, correct = tiny_batch()
         encoder_before = np.array(model.encoder.embeddings.tok_embeddings.weight)
 
-        train_steps(model, [(batch, correct)] * 3, learning_rate=1e-3)
+        train_steps(model, [(batch, correct, None)] * 3, learning_rate=1e-3)
 
         self.assertTrue(np.array_equal(encoder_before, np.array(model.encoder.embeddings.tok_embeddings.weight)))
 
@@ -50,7 +61,7 @@ class TrainerTests(unittest.TestCase):
         trained = tiny_model()
         freeze_encoder(trained)
         batch, correct = tiny_batch()
-        train_steps(trained, [(batch, correct)] * 2, learning_rate=1e-3)
+        train_steps(trained, [(batch, correct, None)] * 2, learning_rate=1e-3)
 
         weights = sanitize_weights(checkpoint_weights(trained))
         reloaded = tiny_model()

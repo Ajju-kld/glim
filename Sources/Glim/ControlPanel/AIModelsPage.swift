@@ -5,17 +5,18 @@ import SwiftUI
 struct AIModelsPage: View {
     @Environment(AppModel.self) private var model
     @State private var plannerModelName = ""
-    @State private var ollamaStatus = ServiceHealth.Status.checking
-    @State private var layaStatus = ServiceHealth.Status.checking
     @State private var jevAPIKey = ""
-    @State private var hasSavedJevKey = KeychainSecretStore().hasJevAPIKey()
+    /// Read from the Keychain when the page opens, not in the initializer, which SwiftUI
+    /// runs again on every redraw of the panel.
+    @State private var hasSavedJevKey = false
     @State private var keyMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             GlassCard(title: "Planner — Ollama on this Mac", systemImage: "cpu", tint: .indigo) {
                 StatusRow(
-                    name: "Status", detail: ollamaStatus.detail, isHealthy: ollamaStatus.isHealthy)
+                    name: "Status", detail: model.ollamaStatus.detail,
+                    isHealthy: model.ollamaStatus.isHealthy)
                 HStack {
                     TextField("Model", text: $plannerModelName)
                         .textFieldStyle(.roundedBorder)
@@ -23,10 +24,7 @@ struct AIModelsPage: View {
                     Button("Save") {
                         let chosenModel = plannerModelName
                         model.changeSettings { $0.plannerModelName = chosenModel }
-                        Task {
-                            ollamaStatus = await ServiceHealth.ollamaStatus(
-                                modelName: chosenModel, transport: model.services.transport)
-                        }
+                        Task { await model.refreshOllamaStatus(modelName: chosenModel) }
                     }
                 }
                 Text(
@@ -38,7 +36,8 @@ struct AIModelsPage: View {
             }
             GlassCard(title: "Laya checker — local", systemImage: "checkmark.shield", tint: .teal) {
                 StatusRow(
-                    name: "Status", detail: layaStatus.detail, isHealthy: layaStatus.isHealthy)
+                    name: "Status", detail: model.layaStatus.detail,
+                    isHealthy: model.layaStatus.isHealthy)
                 Text(
                     "A second opinion on every click, running on 127.0.0.1:8791. Start it with `scripts/start-laya.sh` (see services/laya/README.md). If it's offline, every click and typing step asks you."
                 )
@@ -87,11 +86,8 @@ struct AIModelsPage: View {
         }
         .task {
             plannerModelName = model.settings.plannerModelName
-            async let ollama = ServiceHealth.ollamaStatus(
-                modelName: model.settings.plannerModelName, transport: model.services.transport)
-            async let laya = ServiceHealth.layaStatus(transport: model.services.transport)
-            ollamaStatus = await ollama
-            layaStatus = await laya
+            hasSavedJevKey = KeychainSecretStore().hasJevAPIKey()
+            await model.refreshServiceHealth()
         }
     }
 

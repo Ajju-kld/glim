@@ -184,10 +184,11 @@ struct PlannerTests {
         let model = FakeLanguageModel(answer: #"{"elementNumber":1,"blocked":false}"#)
 
         let choice = try await Planner(languageModel: model).pickTarget(
-            for: .click(appName: "Notes", target: "the new note button"), goal: context.goal,
-            among: [newNoteButton, noteBody])
+            for: .click(appName: "Notes", target: "the button to start writing"),
+            goal: context.goal, among: [newNoteButton, noteBody])
 
-        #expect(choice == .element(newNoteButton))
+        #expect(choice == .element(newNoteButton, pickedBy: .languageModel))
+        #expect(model.requests.count == 1)
     }
 
     @Test func exactLabelMatchIsPickedWithoutAskingTheModel() async throws {
@@ -197,7 +198,7 @@ struct PlannerTests {
             for: .click(appName: "Notes", target: " new NOTE "), goal: context.goal,
             among: [newNoteButton, noteBody])
 
-        #expect(choice == .element(newNoteButton))
+        #expect(choice == .element(newNoteButton, pickedBy: .exactLabel))
         #expect(model.requests.isEmpty)
     }
 
@@ -209,7 +210,7 @@ struct PlannerTests {
             for: .click(appName: "Notes", target: "New Note"), goal: context.goal,
             among: [newNoteButton, secondNewNoteButton])
 
-        #expect(choice == .element(secondNewNoteButton))
+        #expect(choice == .element(secondNewNoteButton, pickedBy: .languageModel))
         #expect(model.requests.count == 1)
     }
 
@@ -220,7 +221,7 @@ struct PlannerTests {
             for: .typeText(appName: "Notes", target: "New Note", text: "hi"), goal: context.goal,
             among: [newNoteButton, noteBody, noteTitle])
 
-        #expect(choice == .element(noteBody))
+        #expect(choice == .element(noteBody, pickedBy: .languageModel))
         #expect(model.requests.count == 1)
     }
 
@@ -234,8 +235,33 @@ struct PlannerTests {
             for: .click(appName: "Spotify", target: "Play button"), goal: "play music",
             among: [pauseButton, playButton])
 
-        #expect(choice == .element(playButton))
+        #expect(choice == .element(playButton, pickedBy: .planMatch))
         #expect(model.requests.isEmpty)
+    }
+
+    @Test func confidentLayaPickIsMarkedAsLayasAndAskedWithTheScreen() async throws {
+        let playButton = UIElementSnapshot.fixture(number: 4, label: "Play")
+        let pauseButton = UIElementSnapshot.fixture(number: 5, label: "Pause")
+        let model = FakeLanguageModel(answers: [])
+        let layaTransport = FakeHTTPTransport(replies: [
+            .response(
+                statusCode: 200,
+                body: #"{"answers":{"target":{"choice":"5","probabilities":{"4":0.05,"5":0.95}}}}"#)
+        ])
+
+        let choice = try await Planner(
+            languageModel: model, fastPicker: LayaPicker(transport: layaTransport)
+        ).pickTarget(
+            for: .click(appName: "Spotify", target: "the thing that stops music"),
+            goal: "stop the music", among: [playButton, pauseButton], appName: "Spotify",
+            windowTitle: "Spotify Premium")
+
+        #expect(choice == .element(pauseButton, pickedBy: .laya))
+        #expect(model.requests.isEmpty)
+        let layaRequest = try #require(layaTransport.sentRequests.first)
+        let state = try #require(try jsonObject(of: layaRequest)["state"] as? [String: Any])
+        #expect(state["app"] as? String == "Spotify")
+        #expect(state["windowTitle"] as? String == "Spotify Premium")
     }
 
     /// Speed: reading the prompt is most of a pick's time, so the model first sees only the

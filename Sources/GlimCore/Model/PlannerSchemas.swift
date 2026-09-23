@@ -44,6 +44,28 @@ public enum PlannerSchemas {
         "required": ["elementNumber", "blocked"],
     ]
 
+    /// Tunable: the longest description of what the model sees at a point. It is shown in the
+    /// confirmation panel, so it stays a few words.
+    public static let maximumVisualDescriptionLength = 80
+
+    /// A point on a window screenshot, or not found with a reason.
+    ///
+    /// The description comes first, so the model names what it is looking at before it commits
+    /// to a point (Ollama makes the model write fields in schema order).
+    public static let visualTarget: JSONValue = [
+        "type": "object",
+        "properties": [
+            "description": [
+                "type": "string", "maxLength": .integer(maximumVisualDescriptionLength),
+            ],
+            "found": ["type": "boolean"],
+            "x": ["type": "integer", "minimum": 0, "maximum": .integer(VisualTarget.gridSize - 1)],
+            "y": ["type": "integer", "minimum": 0, "maximum": .integer(VisualTarget.gridSize - 1)],
+            "reason": ["type": "string", "maxLength": .integer(maximumNameLength)],
+        ],
+        "required": ["description", "found", "x", "y"],
+    ]
+
     /// A short spoken answer.
     public static let answer: JSONValue = [
         "type": "object",

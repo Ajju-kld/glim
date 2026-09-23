@@ -9,6 +9,8 @@ public struct OllamaClient: LanguageModel {
     /// Tunable: how long Ollama keeps the model in memory after a request. Loading it again
     /// takes 10+ seconds on a busy Mac, which is most of a slow first answer.
     public static let keepModelLoadedFor = "30m"
+    /// Tunable: a small fixed context keeps memory low on 16 GB Macs; Glim's prompts are short.
+    public static let contextTokens = 4096
     private static let notFoundStatusCode = 404
     private static let successStatusCodes = 200..<300
 
@@ -64,6 +66,7 @@ public struct OllamaClient: LanguageModel {
             "options": [
                 "temperature": .number(Self.planningTemperature),
                 "num_predict": .integer(request.maximumAnswerTokens),
+                "num_ctx": .integer(Self.contextTokens),
             ],
         ]
         let data = try await send(path: "/api/chat", method: "POST", body: try encoded(chatRequest))

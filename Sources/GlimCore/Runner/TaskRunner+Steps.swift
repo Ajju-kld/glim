@@ -45,20 +45,28 @@ extension TaskRunner {
             }
         }
         var target: UIElementSnapshot?
+        var visualClick: VisualClick?
         var checkerConcerns: [ConfirmationReason] = []
         if step.action.kind.needsTargetElement, let snapshotBefore {
-            (target, checkerConcerns) = try await chooseTarget(
+            switch try await chooseTarget(
                 for: step, goal: plan.goal, snapshot: snapshotBefore, limiter: &limiter,
                 timings: &timings)
+            {
+            case .element(let element, let concerns):
+                target = element
+                checkerConcerns = concerns
+            case .sight(let click):
+                visualClick = click
+            }
         }
         try await pause(for: limiter.waitBeforeNextAction(at: .now))
 
         let returnKeyTargetTexts = await returnKeyTargetTexts(for: step.action, in: app)
         let decision = gate.evaluate(
             gateContext(
-                for: step, app: app, target: target, elements: snapshotBefore?.table.elements ?? [],
-                limiter: limiter, checkerConcerns: checkerConcerns,
-                returnKeyTargetTexts: returnKeyTargetTexts))
+                for: step, app: app, target: target, visualTarget: visualClick?.target,
+                elements: snapshotBefore?.table.elements ?? [], limiter: limiter,
+                checkerConcerns: checkerConcerns, returnKeyTargetTexts: returnKeyTargetTexts))
         try await audit(.gateDecision, "\(step.action.summary): \(decision)")
         var executionTarget = target
         switch decision {
@@ -70,25 +78,30 @@ extension TaskRunner {
             let request = ConfirmationRequest(
                 step: step, appName: app.identity.displayName,
                 elementLabel: target?.label ?? returnKeyTargetTexts.first,
-                textToType: step.action.approvedText, reasons: reasons)
+                textToType: step.action.approvedText, reasons: reasons, visualClick: visualClick)
             try await askPerson(request, takeoverSupervisor: takeoverSupervisor, onEvent: onEvent)
             executionTarget = try await recheckAfterConfirmation(
-                of: step, app: app, target: target, confirmedReasons: reasons,
-                checkerConcerns: checkerConcerns, limiter: limiter)
+                of: step, app: app, target: target, visualTarget: visualClick?.target,
+                confirmedReasons: reasons, checkerConcerns: checkerConcerns, limiter: limiter)
         }
 
         try ensureArmed()
         let actionStart = ContinuousClock.now
         do {
             try await dependencies.executor.perform(
-                ExecutableAction(step: step.action, app: app, targetElement: executionTarget))
+                ExecutableAction(
+                    step: step.action, app: app, targetElement: executionTarget,
+                    visualTarget: visualClick?.target))
         } catch .stopped {
             throw RunnerStop.stopped(dependencies.killSwitch.tripReason ?? .stopButton)
         } catch {
             try await audit(.actionFailed, error.explanation)
             throw RunnerStop.failed(error.explanation)
         }
-        try await audit(.actionPerformed, step.action.summary)
+        try await audit(
+            .actionPerformed,
+            visualClick.map { Self.clickedBySightSummary($0.target, in: app) }
+                ?? step.action.summary)
         timings.record("act", ContinuousClock.now - actionStart)
 
         if case .openApp(let appName) = step.action {
@@ -96,7 +109,11 @@ extension TaskRunner {
         }
         try await pause(for: timing.settleAfterAction)
         let (changedScreen, screenAfter) = try await timings.measure("confirm change") {
-            try await screenChanged(after: step, in: app, before: snapshotBefore)
+            () async throws -> (changed: Bool, screenAfter: ScreenSnapshot?) in
+            if let visualClick {
+                return (try await windowImageChanged(in: app, since: visualClick), nil)
+            }
+            return try await screenChanged(after: step, in: app, before: snapshotBefore)
         }
         try await audit(.stepTiming, timings.summary(title: step.action.summary))
         latestScreen = screenAfter
@@ -128,6 +145,7 @@ extension TaskRunner {
         of step: ScreenedStep,
         app: ResolvedApp,
         target: UIElementSnapshot?,
+        visualTarget: VisualTarget?,
         confirmedReasons: [ConfirmationReason],
         checkerConcerns: [ConfirmationReason],
         limiter: ActionLimiter
@@ -150,8 +168,8 @@ extension TaskRunner {
         }
         let decision = SafetyGate(policy: currentPolicy).evaluate(
             gateContext(
-                for: step, app: app, target: freshTarget, elements: freshElements, limiter: limiter,
-                checkerConcerns: checkerConcerns,
+                for: step, app: app, target: freshTarget, visualTarget: visualTarget,
+                elements: freshElements, limiter: limiter, checkerConcerns: checkerConcerns,
                 returnKeyTargetTexts: await returnKeyTargetTexts(for: step.action, in: app)))
         try await audit(.gateDecision, "After confirmation — \(step.action.summary): \(decision)")
         switch decision {
@@ -172,6 +190,7 @@ extension TaskRunner {
         for step: ScreenedStep,
         app: ResolvedApp,
         target: UIElementSnapshot?,
+        visualTarget: VisualTarget? = nil,
         elements: [UIElementSnapshot],
         limiter: ActionLimiter,
         checkerConcerns: [ConfirmationReason],
@@ -181,7 +200,8 @@ extension TaskRunner {
             approvedStep: step,
             proposedAction: ProposedAction(
                 kind: step.action.kind, targetApp: app.identity, targetElement: target,
-                text: step.action.approvedText, key: Self.key(of: step.action)),
+                text: step.action.approvedText, key: Self.key(of: step.action),
+                visualTarget: visualTarget),
             currentElements: elements,
             limitViolation: limiter.violation(at: .now),
             checkerConcerns: checkerConcerns,
@@ -225,11 +245,25 @@ extension TaskRunner {
 
     // MARK: - Target choice
 
+    /// What a step acts on: a control read from the window with the checkers' concerns, or a
+    /// point found by sight for a click whose control could not be read.
+    enum ChosenTarget {
+        case element(UIElementSnapshot, concerns: [ConfirmationReason])
+        case sight(VisualClick)
+    }
+
     private func chooseTarget(
         for step: ScreenedStep, goal: String, snapshot: ScreenSnapshot,
         limiter: inout ActionLimiter, timings: inout StepTimings
-    ) async throws -> (UIElementSnapshot, [ConfirmationReason]) {
+    ) async throws -> ChosenTarget {
         try await stopIfNothingCanBePicked(for: step, in: snapshot)
+        if snapshot.table.elements.isEmpty {
+            try await auditControlsOffered(in: snapshot, for: step)
+            return .sight(
+                try await timings.measure("look") {
+                    try await locateBySight(for: step, goal: goal, in: snapshot.app)
+                })
+        }
         var retryNote: String?
         while true {
             if let violation = limiter.violation(at: .now),
@@ -246,6 +280,7 @@ extension TaskRunner {
             do {
                 choice = try await dependencies.planner.pickTarget(
                     for: step.action, goal: goal, among: snapshot.table.elements,
+                    appName: step.app?.displayName ?? "", windowTitle: snapshot.windowTitle,
                     retryNote: retryNote)
             } catch .model(let modelError) {
                 throw RunnerStop.failed(modelError.explanation)
@@ -259,10 +294,13 @@ extension TaskRunner {
             case .blocked(let reason):
                 try await audit(.modelError, "The AI found no matching control: \(reason)")
                 try await auditControlsOffered(in: snapshot, for: step)
-                let description = step.action.targetDescription ?? step.action.summary
-                throw RunnerStop.blocked(
-                    .unknownTarget(description: description), stepNumber: step.number)
-            case .element(let element):
+                guard step.action.kind == .click else {
+                    let description = step.action.targetDescription ?? step.action.summary
+                    throw RunnerStop.blocked(
+                        .unknownTarget(description: description), stepNumber: step.number)
+                }
+                return .sight(try await locateBySight(for: step, goal: goal, in: snapshot.app))
+            case .element(let element, let pickedBy):
                 if let mismatch = planMismatchToRetry(element, for: step, in: snapshot) {
                     limiter.recordModelError()
                     retryNote = mismatch
@@ -271,20 +309,22 @@ extension TaskRunner {
                 }
                 let concerns = try await timings.measure("check") {
                     try await checkerConcerns(
-                        for: step, goal: goal, snapshot: snapshot, chosen: element)
+                        for: step, goal: goal, snapshot: snapshot, chosen: element,
+                        pickedBy: pickedBy)
                 }
-                return (element, concerns)
+                return .element(element, concerns: concerns)
             }
         }
     }
 
-    /// Stops before asking the model when it could only guess: the window gave no controls, or
-    /// the plan's control is there but greyed out and nothing enabled matches it.
+    /// Stops before asking the model when it could only guess: the window gave no controls for
+    /// a step that needs one (a click is looked for by sight instead), or the plan's control is
+    /// there but greyed out and nothing enabled matches it.
     private func stopIfNothingCanBePicked(for step: ScreenedStep, in snapshot: ScreenSnapshot)
         async throws
     {
         let appName = snapshot.app.identity.displayName
-        if snapshot.table.elements.isEmpty {
+        if snapshot.table.elements.isEmpty, step.action.kind != .click {
             try await auditControlsOffered(in: snapshot, for: step)
             throw RunnerStop.blocked(.noControlsRead(appName: appName), stepNumber: step.number)
         }
@@ -312,6 +352,69 @@ extension TaskRunner {
                 .targetDisabled(description: plannedTarget, appName: appName),
                 stepNumber: step.number)
         }
+    }
+
+    // MARK: - Sight
+
+    /// Captures the window and asks the model where the step's control is. The point is only a
+    /// proposal: the gate checks it and the person confirms it before anything is clicked.
+    private func locateBySight(
+        for step: ScreenedStep, goal: String, in app: ResolvedApp
+    ) async throws -> VisualClick {
+        let description = step.action.targetDescription ?? step.action.summary
+        let capture: WindowCapture
+        do {
+            capture = try await dependencies.screenshotter.captureFrontWindow(of: app)
+        } catch {
+            throw RunnerStop.failed(error.explanation)
+        }
+        let location: VisualLocation
+        do {
+            location = try await dependencies.planner.locateByImage(
+                for: step.action, goal: goal, screenshotPNG: capture.pngData)
+        } catch .model(let modelError) {
+            throw RunnerStop.failed(modelError.explanation)
+        } catch {
+            try await audit(.modelError, error.explanation)
+            throw RunnerStop.blocked(
+                .unknownTarget(description: description), stepNumber: step.number)
+        }
+        switch location {
+        case .notFound(let reason):
+            try await audit(
+                .modelError, "The AI found nothing matching on screen either: \(reason)")
+            throw RunnerStop.blocked(
+                .unknownTarget(description: description), stepNumber: step.number)
+        case .found(let gridX, let gridY, let foundDescription):
+            return VisualClick(
+                screenshotPNG: capture.pngData,
+                target: VisualTarget(
+                    windowFrame: capture.windowFrame, gridX: gridX, gridY: gridY,
+                    description: foundDescription))
+        }
+    }
+
+    /// Whether the window looks different after a click by sight: it is captured again and
+    /// compared with the capture the point was found on. A failed capture counts as unchanged.
+    private func windowImageChanged(in app: ResolvedApp, since visualClick: VisualClick)
+        async throws -> Bool
+    {
+        do {
+            let captureAfter = try await dependencies.screenshotter.captureFrontWindow(of: app)
+            return captureAfter.pngData != visualClick.screenshotPNG
+        } catch {
+            try await audit(
+                .screenReadFailed,
+                "Could not capture \(app.identity.displayName) after clicking: \(error.explanation)"
+            )
+            return false
+        }
+    }
+
+    static func clickedBySightSummary(_ visualTarget: VisualTarget, in app: ResolvedApp)
+        -> String
+    {
+        "Clicked by sight at (\(visualTarget.gridX), \(visualTarget.gridY)) of \(VisualTarget.gridSize) in \(app.identity.displayName): “\(SecretMasker.masked(visualTarget.description))”"
     }
 
     /// Business rule: words naming a window's own title-bar buttons, which Glim never offers.
@@ -373,12 +476,13 @@ extension TaskRunner {
     }
 
     private func checkerConcerns(
-        for step: ScreenedStep, goal: String, snapshot: ScreenSnapshot, chosen: UIElementSnapshot
+        for step: ScreenedStep, goal: String, snapshot: ScreenSnapshot, chosen: UIElementSnapshot,
+        pickedBy: PickSource
     ) async throws -> [ConfirmationReason] {
         let reviewRequest = TargetReviewRequest(
             goal: goal, step: step, windowTitle: snapshot.windowTitle,
             candidates: ElementRoles.candidates(in: snapshot.table.elements, for: step.action.kind),
-            chosenElement: chosen)
+            chosenElement: chosen, pickedBy: pickedBy)
         let result = await dependencies.checkerConsensus.review(reviewRequest)
         for outcome in result.outcomes {
             try await audit(.checkerVerdict, "\(outcome.checkerName): \(outcome.verdict)")

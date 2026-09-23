@@ -16,6 +16,8 @@ public enum ExecutionError: Error, Sendable, Equatable {
     case accessibility(ScreenReadingError)
     case unsupportedAction(ActionKind)
     case cannotCreateInputEvent
+    /// The window moved or resized after the screenshot a click was found on.
+    case windowMovedSinceCapture(appName: String)
 
     /// One sentence for the popup.
     public var explanation: String {
@@ -33,7 +35,9 @@ public enum ExecutionError: Error, Sendable, Equatable {
         case .windowUnavailable(let appName): "\(appName) has no window to arrange."
         case .accessibility(let readingError): readingError.explanation
         case .unsupportedAction(let kind): "“\(kind.displayName)” is not performed by the executor."
-        case .cannotCreateInputEvent: "Could not create a keyboard or scroll event."
+        case .cannotCreateInputEvent: "Could not create a keyboard, mouse or scroll event."
+        case .windowMovedSinceCapture(let appName):
+            "\(appName)'s window moved after Glim looked at it, so it didn't click."
         }
     }
 }

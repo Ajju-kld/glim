@@ -9,25 +9,40 @@ public struct Planner: Sendable {
         let reason: String?
     }
 
+    private struct VisualTargetAnswer: Decodable {
+        let description: String
+        let found: Bool
+        let x: Int
+        let y: Int
+        let reason: String?
+    }
+
     private struct QuestionAnswer: Decodable {
         let answer: String
     }
 
     private static let defaultBlockedReason = "The AI could not find a matching control."
+    private static let defaultNotFoundReason =
+        "The AI saw nothing on screen that performs the step."
     /// Tunable: controls the model sees on a first pick. Reading the prompt is most of a
     /// pick's time on a laptop, so it gets the closest matches first and every control on retry.
     public static let pickShortlistLimit = 20
     /// Tunable: a pick answer is a number and a flag; this cap stops a runaway answer early.
     public static let pickAnswerTokenLimit = 64
+    /// Tunable: a point answer is a short description and two numbers; this cap stops a runaway.
+    public static let locateAnswerTokenLimit = 96
     /// Tunable: front-window controls listed in the planning prompt, those closest to the
     /// request. A whole window's list slowed planning and tempted the model to copy it.
     public static let planningControlLimit = 20
 
     private let languageModel: any LanguageModel
+    private let fastPicker: LayaPicker?
 
-    /// Creates a planner backed by `languageModel`.
-    public init(languageModel: any LanguageModel) {
+    /// Creates a planner backed by `languageModel`. With `fastPicker`, Laya picks controls
+    /// first and the model is asked only when Laya is unsure or not running.
+    public init(languageModel: any LanguageModel, fastPicker: LayaPicker? = nil) {
         self.languageModel = languageModel
+        self.fastPicker = fastPicker
     }
 
     /// Turns a request into a plan, or recognizes it as a question.
@@ -63,23 +78,25 @@ public struct Planner: Sendable {
     ///   - step: The approved step.
     ///   - goal: The person's request.
     ///   - table: The fresh element table.
+    ///   - appName: The app's name as Laya is shown it, the same as the checker's question.
+    ///   - windowTitle: The front window's title, for Laya.
     ///   - retryNote: Why the previous answer was rejected; the model runs at temperature 0,
     ///     so a retry without feedback would repeat the same answer.
     /// - Returns: The chosen compatible element, or the model's report that none fits.
     /// - Throws: ``PlannerError`` when the model fails or answers with an unusable pick.
     public func pickTarget(
         for step: StepAction, goal: String, among table: [UIElementSnapshot],
-        retryNote: String? = nil
+        appName: String = "", windowTitle: String? = nil, retryNote: String? = nil
     ) async throws(PlannerError) -> TargetChoice {
         let candidates = ElementRoles.candidates(in: table, for: step.kind)
         if let exactMatch = Self.onlyElementLabelled(step.targetDescription, in: candidates) {
-            return .element(exactMatch)
+            return .element(exactMatch, pickedBy: .exactLabel)
         }
         if step.kind == .typeText, candidates.count == 1, let onlyField = candidates.first {
-            return .element(onlyField)
+            return .element(onlyField, pickedBy: .onlyField)
         }
         if let onlyMatch = Self.onlyElementMatchingPlan(step.targetDescription, in: candidates) {
-            return .element(onlyMatch)
+            return .element(onlyMatch, pickedBy: .planMatch)
         }
         let offeredCandidates =
             retryNote == nil
@@ -87,6 +104,13 @@ public struct Planner: Sendable {
                 candidates, targetDescription: step.targetDescription ?? "",
                 limit: Self.pickShortlistLimit)
             : candidates
+        if retryNote == nil, let fastPicker,
+            let layaPick = await fastPicker.pick(
+                for: step, goal: goal, appName: appName, windowTitle: windowTitle,
+                among: offeredCandidates)
+        {
+            return .element(layaPick, pickedBy: .laya)
+        }
         var prompt = Self.targetPrompt(for: step, goal: goal, candidates: offeredCandidates)
         if let retryNote {
             prompt += "\nYour previous answer was rejected: \(retryNote)"
@@ -104,7 +128,42 @@ public struct Planner: Sendable {
         guard let element = candidates.first(where: { $0.number == answer.elementNumber }) else {
             throw .elementNumberNotInTable(answer.elementNumber)
         }
-        return .element(element)
+        return .element(element, pickedBy: .languageModel)
+    }
+
+    /// Finds the control that performs `step` on a screenshot of the app's window, for a click
+    /// whose control could not be read. The answer is only a proposal: the safety gate checks
+    /// the point and the person confirms it before anything is clicked.
+    ///
+    /// - Parameters:
+    ///   - step: The approved step.
+    ///   - goal: The person's request.
+    ///   - screenshotPNG: The window screenshot, kept in memory only.
+    /// - Returns: The point on the 0–1000 grid with what the model sees there, or not found.
+    /// - Throws: ``PlannerError`` when the model fails or answers with an unusable point.
+    public func locateByImage(
+        for step: StepAction, goal: String, screenshotPNG: Data
+    ) async throws(PlannerError) -> VisualLocation {
+        let answerText = try await ask(
+            LanguageModelRequest(
+                systemPrompt: PlannerPrompts.visualTargetLocating,
+                userPrompt: "Goal: \(goal)\nStep: \(step.summary)",
+                responseSchema: PlannerSchemas.visualTarget,
+                imagesPNG: [screenshotPNG],
+                maximumAnswerTokens: Self.locateAnswerTokenLimit))
+        let answer = try decode(VisualTargetAnswer.self, from: answerText)
+        guard answer.found else {
+            return .notFound(reason: answer.reason ?? Self.defaultNotFoundReason)
+        }
+        let gridRange = 0..<VisualTarget.gridSize
+        guard gridRange.contains(answer.x), gridRange.contains(answer.y) else {
+            throw .invalidAnswer(reason: "The point (\(answer.x), \(answer.y)) is off the image.")
+        }
+        let description = answer.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !description.isEmpty else {
+            throw .invalidAnswer(reason: "The answer doesn't say what is at the point.")
+        }
+        return .found(gridX: answer.x, gridY: answer.y, description: description)
     }
 
     /// Answers a question about the screen from its text, or from a screenshot when the text

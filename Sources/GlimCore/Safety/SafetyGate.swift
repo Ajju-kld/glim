@@ -86,9 +86,19 @@ public struct SafetyGate: Sendable {
     }
 
     /// A chosen element must come from this step's fresh table and must not be a password field.
+    /// A point found by sight is accepted only for a click, and only inside the captured window
+    /// below its title bar.
     private func targetViolation(in context: GateContext) -> GuardViolation? {
         let action = context.proposedAction
         guard action.kind.needsTargetElement else {
+            return nil
+        }
+        if action.targetElement == nil, let visualTarget = action.visualTarget,
+            action.kind == .click
+        {
+            guard visualTarget.isInsideClickableArea else {
+                return .visualTargetOutsideWindow(description: visualTarget.description)
+            }
             return nil
         }
         guard let element = action.targetElement, context.currentElements.contains(element) else {
@@ -122,8 +132,9 @@ public struct SafetyGate: Sendable {
         return nil
     }
 
-    /// Risk words are checked on the chosen element and the approved target description — and,
-    /// for Return, on whatever Return would activate.
+    /// Risk words are checked on the chosen element (or what the model saw at a point found by
+    /// sight) and the approved target description — and, for Return, on whatever Return would
+    /// activate.
     private func riskLevel(of context: GateContext) -> RiskLevel {
         if Self.isReturnKey(context.proposedAction) {
             return riskClassifier.classify(context.returnKeyTargetTexts)
@@ -132,17 +143,23 @@ public struct SafetyGate: Sendable {
             return .safe
         }
         var texts = context.proposedAction.targetElement?.describingTexts ?? []
+        if let visualTarget = context.proposedAction.visualTarget {
+            texts.append(visualTarget.description)
+        }
         if let targetDescription = context.approvedStep.action.targetDescription {
             texts.append(targetDescription)
         }
         return riskClassifier.classify(texts)
     }
 
-    /// The label shown when a risk phrase matched: the chosen element, what Return activates,
-    /// or the step itself.
+    /// The label shown when a risk phrase matched: the chosen element, what the model saw at a
+    /// point found by sight, what Return activates, or the step itself.
     private func riskTargetLabel(of context: GateContext) -> String {
         if let elementLabel = context.proposedAction.targetElement?.label {
             return elementLabel
+        }
+        if let visualTarget = context.proposedAction.visualTarget {
+            return visualTarget.description
         }
         if Self.isReturnKey(context.proposedAction),
             let activatedControl = context.returnKeyTargetTexts.first
@@ -174,6 +191,9 @@ public struct SafetyGate: Sendable {
             !planMatcher.elementMatchesPlan(targetDescription: plannedTarget, element: element)
         {
             reasons.append(.planMismatch(planned: plannedTarget, chosen: element.label))
+        }
+        if action.targetElement == nil, let visualTarget = action.visualTarget {
+            reasons.append(.visualClick(description: visualTarget.description))
         }
         reasons.append(contentsOf: context.checkerConcerns)
         if permission == .allowedWithConfirmation {

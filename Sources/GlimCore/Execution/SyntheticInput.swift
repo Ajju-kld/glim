@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-/// Builds and posts Glim's keyboard and scroll events.
+/// Builds and posts Glim's keyboard, scroll and mouse-click events.
 ///
 /// Events are posted to the target app's process (`postToPid`) rather than into the global
 /// event stream, so a sudden focus change can't redirect them to another app — and they don't
@@ -101,6 +101,30 @@ enum SyntheticInput {
         }
         try post([scroll], to: processIdentifier, killSwitch: killSwitch)
     }
+
+    /// Clicks the left mouse button once at `location` (global top-left coordinates), for a
+    /// click step found by sight.
+    static func postClick(
+        at location: CGPoint, to processIdentifier: pid_t, killSwitch: KillSwitch
+    ) throws(ExecutionError) {
+        let source = CGEventSource(stateID: .privateState)
+        guard
+            let mouseDown = CGEvent(
+                mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: location,
+                mouseButton: .left),
+            let mouseUp = CGEvent(
+                mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: location,
+                mouseButton: .left)
+        else {
+            throw .cannotCreateInputEvent
+        }
+        mouseDown.setIntegerValueField(.mouseEventClickState, value: singleClick)
+        mouseUp.setIntegerValueField(.mouseEventClickState, value: singleClick)
+        try post([mouseDown, mouseUp], to: processIdentifier, killSwitch: killSwitch)
+    }
+
+    /// Business rule: a click by sight is always a single click, never a double click.
+    private static let singleClick: Int64 = 1
 
     /// Posts each event only if the kill switch is still armed at that exact moment.
     private static func post(

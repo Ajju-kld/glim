@@ -26,19 +26,22 @@ public struct LayaExample: Sendable, Equatable, Codable, Identifiable {
     public let plannerPick: String
     /// What Laya answered, in words.
     public let layaVerdict: String
+    /// Who chose the planner's pick; nil in examples saved before this was recorded.
+    public let pickedBy: PickSource?
     /// The owner's verdict, once given.
     public let review: LayaReview?
 
     /// Creates an example.
     public init(
         id: UUID, createdAt: Date, question: SystemOneTargetQuestion, plannerPick: String,
-        layaVerdict: String, review: LayaReview?
+        layaVerdict: String, pickedBy: PickSource? = nil, review: LayaReview?
     ) {
         self.id = id
         self.createdAt = createdAt
         self.question = question
         self.plannerPick = plannerPick
         self.layaVerdict = layaVerdict
+        self.pickedBy = pickedBy
         self.review = review
     }
 
@@ -63,14 +66,14 @@ public struct LayaExample: Sendable, Equatable, Codable, Identifiable {
         return LayaExample(
             id: id, createdAt: createdAt, question: question,
             plannerPick: String(request.chosenElement.number), layaVerdict: verdictText,
-            review: nil)
+            pickedBy: request.pickedBy, review: nil)
     }
 
     /// The same example with the owner's review.
     public func reviewed(_ review: LayaReview) -> LayaExample {
         LayaExample(
             id: id, createdAt: createdAt, question: question, plannerPick: plannerPick,
-            layaVerdict: layaVerdict, review: review)
+            layaVerdict: layaVerdict, pickedBy: pickedBy, review: review)
     }
 
     private static func describe(_ verdict: CheckerVerdict) -> String? {

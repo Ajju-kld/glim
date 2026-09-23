@@ -3,7 +3,7 @@ import Foundation
 /// Reads macOS's crash reports for Glim, so the dashboard can say when Glim last crashed.
 enum CrashReports {
     /// One crash: when it happened, how macOS described it, and the report file.
-    struct Crash {
+    struct Crash: Sendable {
         let date: Date
         let description: String
         let reportURL: URL

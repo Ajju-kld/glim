@@ -18,6 +18,7 @@ public enum GuardViolation: Error, Sendable, Equatable {
     case targetDisabled(description: String, appName: String)
     case noControlsRead(appName: String)
     case windowButtonTarget(description: String)
+    case visualTargetOutsideWindow(description: String)
 
     /// Short headline for the guard popup.
     public var title: String {
@@ -39,6 +40,7 @@ public enum GuardViolation: Error, Sendable, Equatable {
         case .targetDisabled: "Control is greyed out"
         case .noControlsRead: "No controls could be read"
         case .windowButtonTarget: "Glim doesn't use window buttons"
+        case .visualTargetOutsideWindow: "Outside the app's window"
         }
     }
 
@@ -79,6 +81,8 @@ public enum GuardViolation: Error, Sendable, Equatable {
             "Glim couldn't read any controls in \(appName)'s window."
         case .windowButtonTarget(let description):
             "Glim never clicks a window's close, minimize or zoom buttons (“\(description)”). Ask it to quit or minimize the app instead."
+        case .visualTargetOutsideWindow(let description):
+            "The AI pointed at “\(description)” outside the app's window or in its title bar, so Glim didn't click."
         }
     }
 }

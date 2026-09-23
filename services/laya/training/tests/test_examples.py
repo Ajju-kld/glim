@@ -3,11 +3,17 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from training.examples import load_reviewed_examples, split_examples, training_minimum_problem
+from training.examples import (
+    LAYA_SELF_CONFIRMED_WEIGHT,
+    load_reviewed_examples,
+    split_examples,
+    training_minimum_problem,
+    training_weight,
+)
 
 
-def example(example_id, app="Notes", correct="1", planner_pick="1"):
-    return {
+def example(example_id, app="Notes", correct="1", planner_pick="1", picked_by=None):
+    item = {
         "id": example_id,
         "createdAt": "2026-09-23T08:00:00Z",
         "question": {
@@ -23,6 +29,9 @@ def example(example_id, app="Notes", correct="1", planner_pick="1"):
         "layaVerdict": "agrees",
         "review": None if correct == "unreviewed" else {"correctOption": correct, "reviewedAt": "2026-09-23T09:00:00Z"},
     }
+    if picked_by is not None:
+        item["pickedBy"] = picked_by
+    return item
 
 
 class LoadingTests(unittest.TestCase):
@@ -67,6 +76,22 @@ class MinimumTests(unittest.TestCase):
         examples = [example(f"id-{number}", app=f"App {number % 5}") for number in range(200)]
 
         self.assertIsNone(training_minimum_problem(examples))
+
+
+class TrainingWeightTests(unittest.TestCase):
+    def test_laya_confirming_its_own_pick_counts_less(self):
+        self_confirmed = example("a", correct="1", planner_pick="1", picked_by="laya")
+
+        self.assertEqual(training_weight(self_confirmed), LAYA_SELF_CONFIRMED_WEIGHT)
+
+    def test_laya_pick_corrected_by_the_owner_counts_fully(self):
+        corrected = example("a", correct="2", planner_pick="1", picked_by="laya")
+
+        self.assertEqual(training_weight(corrected), 1.0)
+
+    def test_language_model_and_older_examples_count_fully(self):
+        self.assertEqual(training_weight(example("a", picked_by="languageModel")), 1.0)
+        self.assertEqual(training_weight(example("b")), 1.0)
 
 
 if __name__ == "__main__":

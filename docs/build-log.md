@@ -923,3 +923,61 @@ listing app names for the planner and messages. Tests reproduce the failure firs
 
 **Q:** What else should publishing include? **A (owner):** search topics and a first release,
 v0.1.0, source only (a downloadable app would need a Developer ID and notarization).
+
+## 2026-09-23 — Control panel stops stuttering between pages
+
+Owner: "the control pane is lagging/jittering too much to change tabs". Causes found by reading
+the panel's pages, with fixes:
+
+| Cause | Fix |
+|---|---|
+| Apps & Trust scanned the Applications folders and fetched every app icon on the main thread, on each visit and each search keystroke | Scan and icons load off the main thread into `AppModel`; icons are fetched once per app; rows are lazy |
+| Two orbs redrew the window at the display's full rate | Sidebar orb is still; the dashboard orb draws at most 30 frames a second and pauses while the panel is in the background. The notch orb is unchanged |
+| Switching pages animated both pages and the scroll height at once | Pages swap instantly; only the sidebar highlight animates |
+| The dashboard read and parsed the newest crash report on the main thread | Read on a background thread and kept in `AppModel` |
+| AI Models read the Keychain in a `@State` initializer, which runs on every redraw | Read once when the page opens |
+| Activity Log re-filtered up to 5 MB of events on every redraw, with row identity by position | Filters when the search or log changes; stable row IDs; newest 300 rows drawn |
+| Health checks and today's tasks reset to "Checking…" / empty on each visit, so the layout jumped | Last values kept in `AppModel`, refreshed in the background |
+| Permissions were checked in the page body on every redraw | Checked when the page opens and on Refresh |
+
+**Gates:** `All gates passed.` — 436 Swift tests in 70 suites, 17 Python tests.
+
+## 2026-09-23 — See and click
+
+Owner: "need visual ability also" (decision C-6; design in
+[see-and-click-design](specs/2026-09-23-see-and-click-design.md)). When a click step's window
+gives no controls, or the model reports that none of them fits, Glim captures the window and
+asks qwen3-vl for the control's centre on a 0–1000 grid (`Planner.locateByImage`).
+
+| Piece | What it does |
+|---|---|
+| `WindowCapture`, `ScreenshotCapturing.captureFrontWindow` | The screenshot comes with the window's frame at capture time |
+| `VisualTarget` | Maps the grid point onto the window; refuses the title-bar strip (28 pt) and anything off the window |
+| `SafetyGate` | A point found by sight is accepted for clicks only; risk words are checked on what the model saw; `visualClick` always asks (a danger reason, so "Ask only before dangerous steps" keeps asking); tiers unchanged |
+| Confirmation panel | Shows the screenshot with a ring on the spot and what the model says is there |
+| `LiveExecutor` | Re-reads the window frame right before clicking and refuses if it moved more than 2 pt; posts one left click to the app's process while armed |
+| Runner | Laya and Jev aren't asked (they judge labelled options); the change check compares a second capture with the first; the log says "Clicked by sight at (x, y) of 1000 in App: “…”" |
+
+Typing, Return and scrolling still need a readable control. Not yet tried on a real app without
+an accessibility tree: whether an app accepts mouse events posted to its process (rather than
+the global event stream) is unverified.
+
+**Gates:** `All gates passed.` — 464 Swift tests in 73 suites, 24 Python tests.
+
+## 2026-09-23 — Laya training data fit for picking (decision C-7)
+
+Laya now picks controls (`LayaPicker`), so its training data and score had to serve that job.
+
+| Change | Why |
+|---|---|
+| `LayaPicker` sends the app name and window title, as the checker does | Laya was asked with an empty app and no window, but trained on examples that had both |
+| `PickSource` on every pick (`exactLabel`, `onlyField`, `planMatch`, `laya`, `languageModel`), saved as `pickedBy` in each example | Review marks Laya's own picks; older examples still load (`pickedBy` absent) |
+| Training counts a Laya pick the owner only confirmed at half weight (`LAYA_SELF_CONFIRMED_WEIGHT`) | Keeps Laya from mostly learning to agree with itself |
+| Score adds pick coverage and pick precision at 0.80; promotion refuses a checkpoint whose confident picks are right less often | The old score only measured Laya as a checker |
+| `LayaPicker.warmUp()` runs with the planner preload (launch and talk key), 30 s timeout | Measured on this M2: first answer 3.4 s (over the 3 s pick timeout), then 50–105 ms |
+
+Live, untrained v10s with the app and window now sent: confidence drops slightly (20 options:
+0.811 → 0.790, below the 0.80 pick threshold), so long lists fall back to the model until Laya
+is trained on Mac examples.
+
+**Gates:** `All gates passed.` — 469 tests in 73 suites; 24 Laya training tests.

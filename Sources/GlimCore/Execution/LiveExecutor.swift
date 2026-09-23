@@ -42,6 +42,11 @@ public struct LiveExecutor: ActionPerforming {
         case .quitApp:
             try await terminate(processIdentifier: processIdentifier, appName: appName)
         case .click:
+            if let visualTarget = action.visualTarget, action.targetElement == nil {
+                try await click(
+                    visualTarget, processIdentifier: processIdentifier, appName: appName)
+                return
+            }
             let element = try targetElement(of: action)
             try await accessibility.press(
                 elementNumber: element.number, expected: element,
@@ -135,6 +140,24 @@ public struct LiveExecutor: ActionPerforming {
         else {
             throw .quitRefused(appName: appName)
         }
+    }
+
+    // MARK: - Clicking by sight
+
+    /// Clicks a point found on a screenshot, only if the window is still where it was captured:
+    /// a moved window would put the point on something the person never saw.
+    private func click(
+        _ visualTarget: VisualTarget, processIdentifier: pid_t, appName: String
+    ) async throws(ExecutionError) {
+        try ensureArmed()
+        let liveFrame = try await accessibility.focusedWindowFrame(
+            processIdentifier: processIdentifier, appName: appName)
+        guard visualTarget.windowStillMatches(liveFrame) else {
+            throw .windowMovedSinceCapture(appName: appName)
+        }
+        try ensureArmed()
+        try SyntheticInput.postClick(
+            at: visualTarget.screenPoint, to: processIdentifier, killSwitch: killSwitch)
     }
 
     // MARK: - Typing

@@ -19,13 +19,11 @@ struct DashboardPage: View {
         "Put Notes on the left and Safari on the right", "Play music",
     ]
 
+    /// Tunable: the hero orb's frame rate; the panel doesn't need the display's full rate.
+    private static let heroOrbFramesPerSecond = 30.0
+
     @Environment(AppModel.self) private var model
-    @State private var ollamaStatus = ServiceHealth.Status.checking
-    @State private var layaStatus = ServiceHealth.Status.checking
-    @State private var todaysTasks: [AuditEvent] = []
-    @State private var logError: String?
-    @State private var lastCrash: CrashReports.Crash?
-    @State private var crashReadError: String?
+    @Environment(\.controlActiveState) private var controlActiveState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -41,7 +39,7 @@ struct DashboardPage: View {
                     healthTileView(tile)
                 }
             }
-            if let lastCrash {
+            if let lastCrash = model.lastCrash {
                 GlassCard(title: "Last crash", systemImage: "exclamationmark.triangle", tint: .red)
                 {
                     HStack {
@@ -57,20 +55,21 @@ struct DashboardPage: View {
                         }
                     }
                 }
-            } else if let crashReadError {
+            } else if let crashReadError = model.crashReadError {
                 Label(crashReadError, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.secondary)
             }
             GlassCard(title: "Today", systemImage: "clock", tint: .indigo) {
-                if let logError {
-                    Label(logError, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
-                } else if todaysTasks.isEmpty {
+                if let todaysTasksError = model.todaysTasksError {
+                    Label(todaysTasksError, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.red)
+                } else if model.todaysTasks.isEmpty {
                     Text(
                         "No tasks yet today. Hold \(HotkeyCombo.pushToTalk.displayName) and say what you want."
                     )
                     .foregroundStyle(.secondary)
                 } else {
-                    ForEach(Array(todaysTasks.enumerated()), id: \.offset) { _, event in
+                    ForEach(Array(model.todaysTasks.enumerated()), id: \.offset) { _, event in
                         HStack(spacing: 10) {
                             Image(systemName: icon(forTaskSummary: event.summary))
                                 .foregroundStyle(color(forTaskSummary: event.summary))
@@ -91,8 +90,12 @@ struct DashboardPage: View {
 
     private var hero: some View {
         HStack(spacing: 22) {
-            GlimOrbView(mood: model.isArmed ? .listening(level: 0.25) : .alert)
-                .frame(width: 96, height: 96)
+            GlimOrbView(
+                mood: model.isArmed ? .listening(level: 0.25) : .alert,
+                maximumFramesPerSecond: Self.heroOrbFramesPerSecond,
+                isPaused: controlActiveState == .inactive
+            )
+            .frame(width: 96, height: 96)
             VStack(alignment: .leading, spacing: 6) {
                 Text(model.isArmed ? "Ready when you are" : "Glim is stopped")
                     .font(.system(size: 22, weight: .bold))
@@ -128,11 +131,12 @@ struct DashboardPage: View {
                 detail: model.isActionModeAvailable ? "On" : actionModeOffReason,
                 systemImage: "hand.tap", isHealthy: model.isActionModeAvailable),
             HealthTile(
-                name: "Planner", detail: ollamaStatus.detail, systemImage: "cpu",
-                isHealthy: ollamaStatus.isHealthy),
+                name: "Planner", detail: model.ollamaStatus.detail, systemImage: "cpu",
+                isHealthy: model.ollamaStatus.isHealthy),
             HealthTile(
-                name: "Laya checker", detail: layaStatus.detail, systemImage: "checkmark.shield",
-                isHealthy: layaStatus.isHealthy),
+                name: "Laya checker", detail: model.layaStatus.detail,
+                systemImage: "checkmark.shield",
+                isHealthy: model.layaStatus.isHealthy),
             HealthTile(
                 name: "Jev checker",
                 detail: model.settings.jev.isEnabled ? "On (cloud)" : "Off",
@@ -196,26 +200,10 @@ struct DashboardPage: View {
     }
 
     private func refresh() async {
-        async let ollama = ServiceHealth.ollamaStatus(
-            modelName: model.settings.plannerModelName, transport: model.services.transport)
-        async let laya = ServiceHealth.layaStatus(transport: model.services.transport)
-        ollamaStatus = await ollama
-        layaStatus = await laya
-        do {
-            let startOfToday = Calendar.current.startOfDay(for: .now)
-            todaysTasks = try await model.services.auditLog.readAllEvents()
-                .filter { $0.kind == .taskFinished && $0.timestamp >= startOfToday }
-                .reversed()
-            logError = nil
-        } catch {
-            logError = "Could not read today's activity: \(error.localizedDescription)"
-        }
-        do {
-            lastCrash = try CrashReports.latest()
-            crashReadError = nil
-        } catch {
-            crashReadError = "Could not read crash reports: \(error.localizedDescription)"
-        }
+        async let health: Void = model.refreshServiceHealth()
+        async let tasks: Void = model.refreshTodaysTasks()
+        async let crash: Void = model.refreshLastCrash()
+        _ = await (health, tasks, crash)
     }
 }
 

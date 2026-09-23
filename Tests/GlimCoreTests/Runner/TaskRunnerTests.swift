@@ -18,6 +18,10 @@ struct TaskRunnerTests {
         readableText: String(repeating: "Testbed practice window text. ", count: 10),
         wasTruncated: false)
 
+    /// A window that gave Glim no controls at all.
+    static let emptyTable = ElementTable(
+        elements: [], handleIndexByElementNumber: [:], readableText: "", wasTruncated: false)
+
     static let quickTiming = RunnerTiming(
         settleAfterAction: .zero, appLaunchTimeout: .milliseconds(50),
         appLaunchPollInterval: .milliseconds(5), windowWaitTimeout: .seconds(1))
@@ -438,19 +442,22 @@ struct TaskRunnerTests {
     }
 
     /// Spotify's window once read as no controls at all. Asking the model to pick from an empty
-    /// list only wastes three tries, so the step stops and says what went wrong.
-    @Test func windowWithNoControlsStopsWithoutAskingTheModel() async throws {
+    /// list only wastes three tries, and typing needs a field the gate can check, so a typing
+    /// step stops and says what went wrong. (A click is looked for by sight instead.)
+    @Test func windowWithNoControlsStopsATypingStepWithoutAskingTheModel() async throws {
         try await withTemporaryDirectory { directory in
-            let emptyTable = ElementTable(
-                elements: [], handleIndexByElementNumber: [:], readableText: "",
-                wasTruncated: false)
             let harness = makeHarness(
-                in: directory, modelAnswers: [Self.clickNewItemLooselyPlan], table: emptyTable)
+                in: directory,
+                modelAnswers: [
+                    #"{"kind":"task","steps":[{"action":"typeText","app":"Testbed","target":"notes","text":"hi"}]}"#
+                ],
+                table: Self.emptyTable)
 
-            let outcome = await harness.run("click new item")
+            let outcome = await harness.run("type hi")
 
             #expect(outcome == .blocked(.noControlsRead(appName: "Testbed"), stepNumber: 1))
             #expect(harness.model.requests.count == 1)
+            #expect(harness.screenshotter.captures == 0)
             let kinds = try await harness.auditLog.readAllEvents().map(\.kind)
             #expect(kinds.contains(.controlsOffered))
         }

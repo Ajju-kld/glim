@@ -55,6 +55,43 @@ struct LayaExampleTests {
         #expect(example.review == nil)
     }
 
+    @Test func exampleRecordsWhoPickedTheControl() throws {
+        let request = TargetReviewRequest(
+            goal: "open notes and add a note",
+            step: ScreenedStep(
+                number: 2, action: .click(appName: "Notes", target: "New Note"), app: .notes,
+                tier: .fullControl),
+            windowTitle: "Notes", candidates: [Self.newNote, Self.secretRow],
+            chosenElement: Self.newNote, pickedBy: .laya)
+
+        let example = try #require(
+            LayaExample.make(
+                from: request,
+                outcome: CheckerOutcome(checkerName: LayaChecker.checkerName, verdict: .agrees),
+                id: UUID(), createdAt: Self.createdAt))
+
+        #expect(example.pickedBy == .laya)
+        let savedLine = try #require(
+            String(data: try JSONEncoder().encode(example), encoding: .utf8))
+        #expect(savedLine.contains(#""pickedBy":"laya""#))
+        #expect(
+            example.reviewed(LayaReview(correctOption: "1", reviewedAt: Self.createdAt)).pickedBy
+                == .laya)
+    }
+
+    @Test func examplesSavedBeforePickersWereRecordedStillLoad() throws {
+        let example = try #require(
+            LayaExample.make(
+                from: Self.reviewRequest(),
+                outcome: CheckerOutcome(checkerName: LayaChecker.checkerName, verdict: .agrees),
+                id: UUID(), createdAt: Self.createdAt))
+        let olderLine = try JSONEncoder().encode(example)
+
+        let reloaded = try JSONDecoder().decode(LayaExample.self, from: olderLine)
+
+        #expect(reloaded.pickedBy == nil)
+    }
+
     @Test(arguments: [
         CheckerOutcome(checkerName: LayaChecker.checkerName, verdict: .unavailable(reason: "down")),
         CheckerOutcome(checkerName: "Jev", verdict: .agrees),

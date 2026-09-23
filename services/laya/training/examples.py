@@ -10,6 +10,12 @@ MINIMUM_APPS = 5
 # Business rule: one example in this many is held back for testing and never trained on.
 TEST_SHARE_DENOMINATOR = 5
 
+# Glim's `pickedBy` value when Laya itself chose the control (LayaPicker in GlimCore).
+PICKED_BY_LAYA = "laya"
+# Tunable: when the owner confirms a pick Laya made itself, the example repeats what Laya already
+# believed, so it counts this much in the loss instead of fully.
+LAYA_SELF_CONFIRMED_WEIGHT = 0.5
+
 DEFAULT_EXAMPLES_PATH = (
     Path.home() / "Library/Application Support/Glim/LayaExamples/examples.jsonl"
 )
@@ -50,6 +56,16 @@ def training_minimum_problem(examples: list[dict]) -> str | None:
     if app_count < MINIMUM_APPS:
         return f"Examples come from {app_count} apps; training needs {MINIMUM_APPS} apps."
     return None
+
+
+def training_weight(example: dict) -> float:
+    """How much the example counts in the loss. Examples saved before Glim recorded `pickedBy`
+    count fully."""
+    confirmed_own_pick = (
+        example.get("pickedBy") == PICKED_BY_LAYA
+        and example["review"]["correctOption"] == example["plannerPick"]
+    )
+    return LAYA_SELF_CONFIRMED_WEIGHT if confirmed_own_pick else 1.0
 
 
 def choice_question(example: dict) -> tuple[dict, dict]:

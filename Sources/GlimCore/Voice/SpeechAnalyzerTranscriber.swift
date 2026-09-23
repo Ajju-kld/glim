@@ -8,7 +8,10 @@ public actor SpeechAnalyzerTranscriber: PushToTalkTranscribing {
     private static let preferredLocale = Locale(identifier: "en-US")
     private static let inputBus: AVAudioNodeBus = 0
     /// Tunable: microphone buffer size in frames.
-    private static let tapBufferSize: AVAudioFrameCount = 4_096
+    /// 1 024 frames is about 21 ms at 48 kHz, so words reach the recognizer sooner.
+    private static let tapBufferSize: AVAudioFrameCount = 1_024
+    /// Set once the speech model is known to be installed, so later presses skip the check.
+    private var speechAssetsReady = false
 
     private var sessionGate = ListeningSessionGate()
     private var audioEngine: AVAudioEngine?
@@ -33,7 +36,10 @@ public actor SpeechAnalyzerTranscriber: PushToTalkTranscribing {
             throw .localeNotSupported
         }
         let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
-        try await Self.installSpeechAssetsIfNeeded(for: transcriber)
+        if !speechAssetsReady {
+            try await Self.installSpeechAssetsIfNeeded(for: transcriber)
+            speechAssetsReady = true
+        }
         try ensureStillStarting(session)
         guard
             let analyzerFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [

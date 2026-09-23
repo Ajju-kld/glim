@@ -111,6 +111,15 @@ private struct ReviewCard: View {
             Text("Laya \(example.layaVerdict)")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+            if example.pickedBy == .laya {
+                Label(
+                    "Laya picked this itself. Check it against the step, not against Laya's answer; a confirmed Laya pick counts half in training.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.callout)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            }
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(sortedOptions, id: \.number) { option in
                     optionRow(option)
@@ -128,6 +137,16 @@ private struct ReviewCard: View {
         .panelSurface(cornerRadius: 16)
     }
 
+    /// Who made the pick, when Glim recorded it.
+    private var pickLabel: String {
+        switch example.pickedBy {
+        case .laya: "Laya's own pick"
+        case .languageModel: "planner's pick (AI)"
+        case .exactLabel, .onlyField, .planMatch: "planner's pick (by label)"
+        case nil: "planner's pick"
+        }
+    }
+
     private var windowSuffix: String {
         example.question.windowTitle.map { " — “\($0)”" } ?? ""
     }
@@ -138,7 +157,7 @@ private struct ReviewCard: View {
             Text("[\(option.number)] \(option.text)")
                 .fontWeight(isPlannerPick ? .semibold : .regular)
             if isPlannerPick {
-                Text("planner's pick").font(.caption).foregroundStyle(.orange)
+                Text(pickLabel).font(.caption).foregroundStyle(.orange)
             }
             Spacer()
             if !isPlannerPick {

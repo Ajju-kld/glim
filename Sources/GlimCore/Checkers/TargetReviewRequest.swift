@@ -11,6 +11,8 @@ public struct TargetReviewRequest: Sendable {
     public let candidates: [UIElementSnapshot]
     /// The main model's pick.
     public let chosenElement: UIElementSnapshot
+    /// Who chose `chosenElement`, saved with Laya training examples.
+    public let pickedBy: PickSource?
 
     /// Creates a review request.
     public init(
@@ -18,12 +20,14 @@ public struct TargetReviewRequest: Sendable {
         step: ScreenedStep,
         windowTitle: String?,
         candidates: [UIElementSnapshot],
-        chosenElement: UIElementSnapshot
+        chosenElement: UIElementSnapshot,
+        pickedBy: PickSource? = nil
     ) {
         self.goal = goal
         self.step = step
         self.windowTitle = windowTitle
         self.candidates = candidates
         self.chosenElement = chosenElement
+        self.pickedBy = pickedBy
     }
 }
