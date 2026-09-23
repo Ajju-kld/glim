@@ -145,7 +145,7 @@ Requirements: Apple Silicon Mac, **macOS 26**, Xcode 26.
 # 1. The planner model (Ollama 0.6.x is too old for qwen3-vl)
 brew upgrade ollama
 brew services start ollama
-ollama pull qwen3-vl:8b        # ~6 GB; qwen3-vl:4b is lighter
+ollama pull qwen3-vl:4b        # ~3.3 GB, the default; qwen3-vl:8b (~6 GB) plans better
 
 # 2. Optional: the local Laya checker (read services/laya/README.md first)
 scripts/start-laya.sh
@@ -275,8 +275,11 @@ tccutil reset All dev.straxs.Glim                            # revokes Glim's pe
   other macOS 26 APIs.
 - **English interface for clicking and typing.** The safety word lists are English; with
   another system language Glim only reads and answers.
-- **Slow on 16 GB Macs.** With `qwen3-vl:8b` on an M2, planning and each pick among many
-  controls can take several seconds. The Activity Log's timing lines show where time goes.
+- **Slow on 16 GB Macs.** Planning and each pick among many controls can take several
+  seconds, and much longer when memory runs out: with other big apps open, the Mac swaps and
+  the model slows to a few tokens a second. Glim defaults to `qwen3-vl:4b` for that reason;
+  `qwen3-vl:8b` plans better where memory allows. The Activity Log's timing lines show where
+  time goes.
 - **Spotify "Next" can stop** with "changed before Glim could act" — under investigation.
 - **Notes greys out New Note in some views** (such as "All iCloud"); Glim won't click a
   greyed-out button, so pick a folder like "Notes" first.
@@ -305,10 +308,13 @@ for text that tries to trick an AI. You can change that in Apps & Trust (with To
 example "All iCloud", or when an iCloud account needs attention). Glim won't click a greyed-out
 button; pick a folder such as "Notes" first.
 
-**Why is it slow on my Mac?** The local model's time grows with the prompt: on an M2 with
-16 GB, `qwen3-vl:8b` reads about 7.5 ms per token. The Activity Log's timing lines show which
-part of a step is slow. A smaller model such as `qwen3-vl:4b` is faster, at some cost in
-accuracy.
+**Why is it slow on my Mac?** Usually memory. The model needs several GB of its own; when
+other apps fill the rest, macOS swaps and the model slows to a few tokens a second (Activity
+Monitor → Memory shows the swap). Close big apps or restart. The local model's time also grows
+with the prompt: on an M2 with 16 GB, `qwen3-vl:8b` reads about 7.5 ms per token. The Activity
+Log's timing lines show which part of a step is slow. Glim defaults to the smaller
+`qwen3-vl:4b`; switch to `qwen3-vl:8b` on the AI Models page for better plans when you have
+the memory.
 
 ## Contributing
 

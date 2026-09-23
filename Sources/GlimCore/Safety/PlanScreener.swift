@@ -21,9 +21,12 @@ public struct PlanScreener: Sendable {
     ///   - plan: The plan proposed by the model.
     ///   - resolveApp: Maps an app name from the plan to a verified identity, or nil when no
     ///     such app is installed or running.
+    ///   - isRunning: Whether the named app is running. A switch to an app that isn't becomes
+    ///     an open, screened like any other open.
     /// - Returns: The screened plan, or the first violation and the step that caused it.
     public func screen(
-        _ plan: Plan, resolveApp: (String) -> AppIdentity?
+        _ plan: Plan, resolveApp: (String) -> AppIdentity?,
+        isRunning: (String) -> Bool = { _ in true }
     ) -> PlanScreeningOutcome {
         guard !plan.steps.isEmpty else {
             return .rejected(.emptyPlan, stepNumber: nil)
@@ -33,8 +36,9 @@ public struct PlanScreener: Sendable {
             return .rejected(.limitReached(.tooManyActions(limit: actionLimit)), stepNumber: nil)
         }
         var screenedSteps: [ScreenedStep] = []
-        for (offset, action) in plan.steps.enumerated() {
+        for (offset, plannedAction) in plan.steps.enumerated() {
             let stepNumber = offset + 1
+            let action = Self.openingInsteadOfSwitching(plannedAction, isRunning: isRunning)
             do throws(GuardViolation) {
                 let screenedStep = try screenStep(
                     action, number: stepNumber, resolveApp: resolveApp)
@@ -44,6 +48,17 @@ public struct PlanScreener: Sendable {
             }
         }
         return .readyForApproval(ScreenedPlan(goal: plan.goal, steps: screenedSteps))
+    }
+
+    /// The model sometimes plans "Switch to" an app that is closed, which can't run; opening it
+    /// is what the person meant.
+    private static func openingInsteadOfSwitching(
+        _ action: StepAction, isRunning: (String) -> Bool
+    ) -> StepAction {
+        guard case .switchApp(let appName) = action, !isRunning(appName) else {
+            return action
+        }
+        return .openApp(appName: appName)
     }
 
     private func screenStep(

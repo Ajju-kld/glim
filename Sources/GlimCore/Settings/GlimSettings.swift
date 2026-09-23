@@ -1,7 +1,9 @@
 /// Everything the person can change in the control panel.
 public struct GlimSettings: Sendable, Equatable, Codable {
-    /// Tunable (B-Q12): the Ollama model that plans and picks targets.
-    public static let defaultPlannerModelName = "qwen3-vl:8b"
+    /// Tunable (B-Q12, C-8): the Ollama model that plans and picks targets. `qwen3-vl:4b` for
+    /// now: `qwen3-vl:8b` plans better but needs about 2 GB more memory, and a 16 GB Mac under
+    /// memory pressure ran it at 3–6 tokens a second.
+    public static let defaultPlannerModelName = "qwen3-vl:4b"
 
     /// The settings Glim starts with and "Reset to safe defaults" restores.
     public static let safeDefaults = GlimSettings(

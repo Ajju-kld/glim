@@ -79,7 +79,10 @@ extension TaskRunner {
                 step: step, appName: app.identity.displayName,
                 elementLabel: target?.label ?? returnKeyTargetTexts.first,
                 textToType: step.action.approvedText, reasons: reasons, visualClick: visualClick)
-            try await askPerson(request, takeoverSupervisor: takeoverSupervisor, onEvent: onEvent)
+            try await timings.measure("waiting for you") {
+                try await askPerson(
+                    request, takeoverSupervisor: takeoverSupervisor, onEvent: onEvent)
+            }
             executionTarget = try await recheckAfterConfirmation(
                 of: step, app: app, target: target, visualTarget: visualClick?.target,
                 confirmedReasons: reasons, checkerConcerns: checkerConcerns, limiter: limiter)
@@ -265,7 +268,18 @@ extension TaskRunner {
                 })
         }
         var retryNote: String?
+        // Picks rejected for not matching the plan; the model is not offered them again, since
+        // at temperature 0 it would mostly repeat itself.
+        var rejectedElements: [UIElementSnapshot] = []
         while true {
+            let offeredElements = snapshot.table.elements.filter { !rejectedElements.contains($0) }
+            if !rejectedElements.isEmpty,
+                ElementRoles.candidates(in: offeredElements, for: step.action.kind).isEmpty
+            {
+                return try await noMatchingControl(
+                    for: step, goal: goal, snapshot: snapshot,
+                    reason: "every control was tried and none matches the plan", timings: &timings)
+            }
             if let violation = limiter.violation(at: .now),
                 violation
                     != .actionsTooClose(
@@ -276,15 +290,16 @@ extension TaskRunner {
             }
             let choice: TargetChoice
             let pickStart = ContinuousClock.now
-            defer { timings.record("pick", ContinuousClock.now - pickStart) }
             do {
                 choice = try await dependencies.planner.pickTarget(
-                    for: step.action, goal: goal, among: snapshot.table.elements,
+                    for: step.action, goal: goal, among: offeredElements,
                     appName: step.app?.displayName ?? "", windowTitle: snapshot.windowTitle,
                     retryNote: retryNote)
+                timings.record("pick", ContinuousClock.now - pickStart)
             } catch .model(let modelError) {
                 throw RunnerStop.failed(modelError.explanation)
             } catch {
+                timings.record("pick", ContinuousClock.now - pickStart)
                 limiter.recordModelError()
                 retryNote = error.explanation
                 try await audit(.modelError, error.explanation)
@@ -292,17 +307,12 @@ extension TaskRunner {
             }
             switch choice {
             case .blocked(let reason):
-                try await audit(.modelError, "The AI found no matching control: \(reason)")
-                try await auditControlsOffered(in: snapshot, for: step)
-                guard step.action.kind == .click else {
-                    let description = step.action.targetDescription ?? step.action.summary
-                    throw RunnerStop.blocked(
-                        .unknownTarget(description: description), stepNumber: step.number)
-                }
-                return .sight(try await locateBySight(for: step, goal: goal, in: snapshot.app))
+                return try await noMatchingControl(
+                    for: step, goal: goal, snapshot: snapshot, reason: reason, timings: &timings)
             case .element(let element, let pickedBy):
                 if let mismatch = planMismatchToRetry(element, for: step, in: snapshot) {
                     limiter.recordModelError()
+                    rejectedElements.append(element)
                     retryNote = mismatch
                     try await audit(.modelError, mismatch)
                     continue
@@ -315,6 +325,24 @@ extension TaskRunner {
                 return .element(element, concerns: concerns)
             }
         }
+    }
+
+    /// No control fits the step: a click is looked for by sight; anything else stops.
+    private func noMatchingControl(
+        for step: ScreenedStep, goal: String, snapshot: ScreenSnapshot, reason: String,
+        timings: inout StepTimings
+    ) async throws -> ChosenTarget {
+        try await audit(.modelError, "The AI found no matching control: \(reason)")
+        try await auditControlsOffered(in: snapshot, for: step)
+        guard step.action.kind == .click else {
+            let description = step.action.targetDescription ?? step.action.summary
+            throw RunnerStop.blocked(
+                .unknownTarget(description: description), stepNumber: step.number)
+        }
+        return .sight(
+            try await timings.measure("look") {
+                try await locateBySight(for: step, goal: goal, in: snapshot.app)
+            })
     }
 
     /// Stops before asking the model when it could only guess: the window gave no controls for
@@ -362,6 +390,10 @@ extension TaskRunner {
         for step: ScreenedStep, goal: String, in app: ResolvedApp
     ) async throws -> VisualClick {
         let description = step.action.targetDescription ?? step.action.summary
+        try await audit(
+            .lookingBySight,
+            "Looking at a screenshot of \(app.identity.displayName) for “\(SecretMasker.masked(description))”"
+        )
         let capture: WindowCapture
         do {
             capture = try await dependencies.screenshotter.captureFrontWindow(of: app)

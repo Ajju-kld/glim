@@ -11,6 +11,7 @@ final class ControlPanelWindowController {
 
     private let model: AppModel
     private var window: NSWindow?
+    private var closeObserver: NSObjectProtocol?
 
     init(model: AppModel) {
         self.model = model
@@ -41,6 +42,22 @@ final class ControlPanelWindowController {
         newWindow.isReleasedWhenClosed = false
         newWindow.setFrameAutosaveName(Self.autosaveName)
         newWindow.center()
+        closeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: newWindow, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.discardClosedWindow() }
+        }
         return newWindow
+    }
+
+    /// Drops the closed window and its views, so nothing on a page (the dashboard's orb, its
+    /// refresh tasks) keeps running unseen. The next `show()` builds a fresh one in the same
+    /// place.
+    private func discardClosedWindow() {
+        if let closeObserver {
+            NotificationCenter.default.removeObserver(closeObserver)
+        }
+        closeObserver = nil
+        window = nil
     }
 }

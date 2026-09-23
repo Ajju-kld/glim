@@ -296,3 +296,14 @@ data once Laya started picking controls (LayaPicker).
    whose confident picks are right less often is never promoted.
 4. Glim sends Laya one throwaway question at launch, so the first real pick doesn't hit the
    3-second timeout while Laya loads (measured: 3.4 s cold, 50–105 ms warm).
+
+### C-8 · Use qwen3-vl:4b for now
+User said (verbatim): "the lighter qwen3-vl:4b  can we use this model for now  after that i will
+do it and also update the docs and devdocs".
+Context: the audit log showed planning slowing from 5–7 s to 50–59 s over a day. Measured on
+the owner's M2 / 16 GB: 9.9 GB of swap in use, about 80,000 pages a second compressed and
+decompressed while idle, and `qwen3-vl:8b` at 3–6 tokens a second.
+**Decision:** `qwen3-vl:4b` becomes the default planner for now; `qwen3-vl:8b` stays installed
+and can be chosen again on the AI Models page. This revisits C-5, which kept 8b because 4b
+was measured no faster and worse at planning on a Mac that was not short of memory. The owner
+will free memory (restart, fewer big apps) and may switch back.

@@ -123,6 +123,45 @@ struct PlanScreenerTests {
     }
 }
 
+struct PlanScreenerSwitchTests {
+    let screener = PlanScreener(policy: .safeDefaults)
+
+    /// "Switch to WhatsApp" with WhatsApp closed used to stop with "Could not find WhatsApp".
+    @Test func switchingToAnAppThatIsNotRunningOpensItInstead() throws {
+        let outcome = screener.screen(
+            Plan(goal: "say hi", steps: [.switchApp(appName: "Notes")]),
+            resolveApp: { _ in .notes }, isRunning: { _ in false })
+
+        guard case .readyForApproval(let screenedPlan) = outcome else {
+            Issue.record("Expected a plan ready for approval, got \(outcome)")
+            return
+        }
+        #expect(screenedPlan.steps.map(\.action) == [.openApp(appName: "Notes")])
+    }
+
+    @Test func switchingToARunningAppStaysASwitch() throws {
+        let outcome = screener.screen(
+            Plan(goal: "say hi", steps: [.switchApp(appName: "Notes")]),
+            resolveApp: { _ in .notes }, isRunning: { _ in true })
+
+        guard case .readyForApproval(let screenedPlan) = outcome else {
+            Issue.record("Expected a plan ready for approval, got \(outcome)")
+            return
+        }
+        #expect(screenedPlan.steps.map(\.action) == [.switchApp(appName: "Notes")])
+    }
+
+    /// Opening runs the app's own code, so a switch that becomes an open must pass the
+    /// signature check too.
+    @Test func switchThatBecomesAnOpenNeedsAVerifiedApp() {
+        let outcome = screener.screen(
+            Plan(goal: "say hi", steps: [.switchApp(appName: "Notes")]),
+            resolveApp: { _ in .impostorNotes }, isRunning: { _ in false })
+
+        #expect(outcome == .rejected(.unverifiedApp(appName: "Notes"), stepNumber: 1))
+    }
+}
+
 struct PlanScreenerSignatureTests {
     @Test func openingAnUnverifiedAppIsRejectedBeforeApproval() {
         let screener = PlanScreener(policy: .safeDefaults)

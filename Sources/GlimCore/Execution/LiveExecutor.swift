@@ -48,9 +48,16 @@ public struct LiveExecutor: ActionPerforming {
                 return
             }
             let element = try targetElement(of: action)
-            try await accessibility.press(
-                elementNumber: element.number, expected: element,
-                processIdentifier: processIdentifier, killSwitch: killSwitch)
+            switch ElementRoles.clickMethod(forRole: element.role) {
+            case .press:
+                try await accessibility.press(
+                    elementNumber: element.number, expected: element,
+                    processIdentifier: processIdentifier, killSwitch: killSwitch)
+            case .focus:
+                try await accessibility.focusTextField(
+                    elementNumber: element.number, expected: element,
+                    processIdentifier: processIdentifier, killSwitch: killSwitch)
+            }
         case .typeText(_, _, let text):
             try await type(
                 text, into: try targetElement(of: action), processIdentifier: processIdentifier)

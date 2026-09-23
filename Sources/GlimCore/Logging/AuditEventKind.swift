@@ -7,6 +7,8 @@ public enum AuditEventKind: String, Sendable, Codable {
     case planCancelled
     case modelError
     case controlsOffered
+    /// A click's control couldn't be read, so Glim is looking for it on a screenshot.
+    case lookingBySight
     case readCheck
     case stepTiming
     case checkerVerdict

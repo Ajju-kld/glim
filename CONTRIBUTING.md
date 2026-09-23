@@ -6,7 +6,8 @@ safe than before.
 ## Set up
 
 - Apple Silicon Mac, **macOS 26**, **Xcode 26** (Swift 6).
-- [Ollama](https://ollama.com) with the planner model: `ollama pull qwen3-vl:8b`.
+- [Ollama](https://ollama.com) with the planner model: `ollama pull qwen3-vl:4b`
+  (`qwen3-vl:8b` plans better if your Mac has the memory to spare).
 - Optional: the local Laya checker — `scripts/start-laya.sh` (needs Homebrew Python 3.11 or
   newer; read [services/laya/README.md](services/laya/README.md) first).
 

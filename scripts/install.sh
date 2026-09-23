@@ -13,7 +13,7 @@ readonly OUTPUT_DIRECTORY="build"
 readonly MOUNT_POINT="$OUTPUT_DIRECTORY/dmg-mount"
 readonly APP_NAME="Glim.app"
 # Glim's default planner model (GlimSettings.defaultPlannerModelName).
-readonly PLANNER_MODEL="qwen3-vl:8b"
+readonly PLANNER_MODEL="qwen3-vl:4b"
 
 destination="/Applications"
 dmg_path=""

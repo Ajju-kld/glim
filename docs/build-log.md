@@ -998,3 +998,36 @@ The owner asked for an installer disk image and a command to install from it.
   and the disk image are signed alike.
 - Not notarized: signed with an Apple Development certificate, so other Macs' Gatekeeper
   refuses it. Tested by installing into a folder inside `build/`, never `/Applications`.
+
+## 2026-09-24 — Fixes from a real Activity Log
+
+The owner's log from 2026-09-23 showed planning slowing from 5–7 s to 50–59 s. Measured: the
+Mac was swapping (9.9 GB of 11 GB swap in use, about 80,000 pages a second compressed and
+decompressed while idle) and qwen3-vl ran at 3–6 tokens a second; with Glim quit it was no
+faster, so the fix there is freeing memory, not code. The same log showed these Glim bugs:
+
+| Log symptom | Cause | Fix |
+|---|---|---|
+| `“Tab Search” doesn't match the plan's “Address and search bar”` ×3, then blocked | A click could only target buttons, links, cells…; the address bar (a text field) was never offered, so the model guessed | Clicks may target text fields (`ElementRoles`); clicking one puts the cursor in it (`ClickMethod.focus`) instead of pressing. Password fields are still never offered |
+| `“New Tab” doesn't match…` twice, `“Search” doesn't match…` three times | Each retry offered the rejected control again, and at temperature 0 the model repeated itself | Rejected picks are left out of the next try; when nothing compatible is left, a click looks by sight and anything else stops as "target not found". The three-try limit is unchanged |
+| Glim at 46 % CPU while idle, sampled in `GlimOrbView` | The notch orb kept redrawing at display rate while the pill was tucked away (opacity 0); a closed control panel kept its views alive | The notch orb pauses while the pill is closed; closing the control panel discards the window, so `show()` builds a fresh one |
+| `Controls read from “Spotify Free” … none.` then nothing for 46 s until STOP | Looking by sight logged nothing until it finished, and after a "no matching control" its time was counted as "pick" | A `lookingBySight` line ("Looking at a screenshot of Spotify for “Play button”") before the capture, and its own "look" part in the step timing on both paths |
+| `Switch to WhatsApp` → `Could not find “WhatsApp”` | The model planned a switch to an app that wasn't running | Plan screening turns a switch to a closed app into an open, which then passes the open checks (signature, tier) |
+| `Press Return … took 5.1 sec: act 0.0 sec, confirm change 0.0 sec` | The person's time in the confirmation panel was hidden in the total | A "waiting for you" part in the step timing |
+
+**Gates:** `All gates passed.` — 483 tests in 75 suites; 24 Laya training tests.
+
+## 2026-09-24 — Default planner: qwen3-vl:4b (decision C-8)
+
+The audit log showed planning growing from 5–7 s to 50–59 s through the day (one 60 s
+timeout), while every step ran in under a second. Cause: memory, not Glim's code. On the
+owner's M2 / 16 GB: 9.9 GB of 11 GB swap used, 68 MB free, about 80,000 pages a second
+compressed and decompressed while idle, `kernel_task` at 34 % CPU, and `qwen3-vl:8b` at
+3.1–5.9 tokens a second. Quitting Glim or stopping Laya did not change the speed.
+
+- `GlimSettings.defaultPlannerModelName` is now `qwen3-vl:4b` (about 2 GB less memory);
+  `scripts/install.sh`, README, CONTRIBUTING, the manual tests and the design spec follow.
+- Existing settings keep their saved model: switching on the AI Models page is a planner-model
+  change and asks for Touch ID, like before.
+- `qwen3-vl:8b` stays installed. The earlier measurement (4b no faster, worse plans) was taken
+  without memory pressure; this change trades plan quality for headroom until memory is freed.

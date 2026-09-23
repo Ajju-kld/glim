@@ -84,7 +84,9 @@ struct NotchPillView: View {
     private var content: some View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
-                GlimOrbView(mood: shownStatus.orbMood ?? .done)
+                // Held still while the pill is tucked into the notch: an unseen orb redrawing
+                // every frame kept Glim at about half a core while idle.
+                GlimOrbView(mood: shownStatus.orbMood ?? .done, isPaused: !isOpen)
                     .frame(width: Self.orbSize, height: Self.orbSize)
                 VStack(alignment: .leading, spacing: 1) {
                     if detail == nil {

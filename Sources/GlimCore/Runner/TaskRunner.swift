@@ -126,9 +126,13 @@ public struct TaskRunner: Sendable {
         _ plan: Plan, onEvent: @escaping @Sendable (TaskEvent) -> Void
     ) async throws -> TaskOutcome {
         let screener = PlanScreener(policy: currentPolicy)
-        let screening = screener.screen(plan) { appName in
-            dependencies.appResolver.resolve(appNamed: appName)?.identity
-        }
+        let screening = screener.screen(
+            plan,
+            resolveApp: { appName in dependencies.appResolver.resolve(appNamed: appName)?.identity
+            },
+            isRunning: { appName in
+                dependencies.appResolver.resolveRunning(appNamed: appName) != nil
+            })
         let screenedPlan: ScreenedPlan
         switch screening {
         case .rejected(let violation, let stepNumber):

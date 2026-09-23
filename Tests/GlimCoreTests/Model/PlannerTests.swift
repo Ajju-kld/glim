@@ -202,6 +202,18 @@ struct PlannerTests {
         #expect(model.requests.isEmpty)
     }
 
+    /// "Click the address bar": a field is a valid click target, picked by its label.
+    @Test func clickOnAFieldByItsLabelIsPickedWithoutAskingTheModel() async throws {
+        let model = FakeLanguageModel(answers: [])
+
+        let choice = try await Planner(languageModel: model).pickTarget(
+            for: .click(appName: "Notes", target: "Title"), goal: context.goal,
+            among: [newNoteButton, noteTitle])
+
+        #expect(choice == .element(noteTitle, pickedBy: .exactLabel))
+        #expect(model.requests.isEmpty)
+    }
+
     @Test func twoControlsWithTheSameLabelStillAskTheModel() async throws {
         let secondNewNoteButton = UIElementSnapshot.fixture(number: 3, label: "New Note")
         let model = FakeLanguageModel(answer: #"{"elementNumber":3,"blocked":false}"#)

@@ -6,7 +6,8 @@ table at the end and in `docs/build-log.md`.
 
 ## Before you start
 
-1. Ollama is running with the model: `ollama list` shows `qwen3-vl:8b`.
+1. Ollama is running with the model: `ollama list` shows `qwen3-vl:4b` (or the model set on
+   the AI Models page).
 2. Build with your Apple Development identity so Glim trusts Testbed:
    `scripts/run.sh --testbed`.
 3. Grant Microphone, Speech Recognition and Accessibility (Control Panel → Permissions).

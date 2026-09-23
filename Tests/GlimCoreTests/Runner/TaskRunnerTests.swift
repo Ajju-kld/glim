@@ -362,8 +362,10 @@ struct TaskRunnerTests {
                 outcome == .blocked(.limitReached(.tooManyTriesForStep(limit: 3)), stepNumber: 1))
             #expect(harness.executor.performed.isEmpty)
             #expect(harness.decisions.confirmationsShown.isEmpty)
-            #expect(
-                harness.model.requests.last?.userPrompt.contains("doesn't match the plan") == true)
+            // The first retry says why; the rejected Archive is then no longer offered.
+            let firstRetryPrompt = harness.model.requests.dropFirst(2).first?.userPrompt
+            #expect(firstRetryPrompt?.contains("doesn't match the plan") == true)
+            #expect(firstRetryPrompt?.contains("] Archive (") == false)
         }
     }
 
