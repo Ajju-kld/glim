@@ -920,3 +920,6 @@ listing app names for the planner and messages. Tests reproduce the failure firs
   IDs were updated), and this repository commits with that address from now on.
 - Published at https://github.com/Ajju-kld/glim (`main` only), with private vulnerability
   reporting turned on for [SECURITY.md](../SECURITY.md).
+
+**Q:** What else should publishing include? **A (owner):** search topics and a first release,
+v0.1.0, source only (a downloadable app would need a Developer ID and notarization).
