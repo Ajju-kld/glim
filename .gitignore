@@ -4,3 +4,6 @@ build/
 *.app
 .DS_Store
 xcuserdata/
+services/laya/src/
+services/laya/.venv/
+services/laya/model-cache/
