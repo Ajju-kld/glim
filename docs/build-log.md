@@ -552,13 +552,13 @@ was checked against the code and confirmed, then fixed test-first:
 
 | # | Finding | Fix (commit) |
 |---|---|---|
-| 1 | Settings tightened mid-task didn't reach the running task | Runner re-reads settings each step, combined strictly with its starting policy (`e6015c8`) |
-| 2 | No re-check after the up-to-60 s confirmation; shallow element check | Fresh snapshot + same control + gate re-run after "Allow once"; live identity check recomputes the label (`63c839c`, `6c6a4f5`) |
-| 3 | Kill switch not checked at the OS call; per-app AX timeout didn't cover children | Checked right before every AX write and `postToPid`; timeout set on the system-wide element (`6333105`) |
-| 4 | Panels took keyboard focus → Approve reachable by keyboard | Never key; real mouse click only; 0.8 s arming delay (`eb25690`) |
-| 5 | Return never checked against Forbidden words | Reads focused control + default button; Forbidden denies; confirmation names it (`63c839c`) |
-| 6 | Mic could stay on after releasing the talk key during startup | `ListeningSessionGate` cancels a start in progress (`e1b0c71`) |
-| 7 | Cloud models (Ollama `-cloud`) would leak through 127.0.0.1 | Model change needs Touch ID; cloud names refused by settings and client (`eae1d9a`) |
+| 1 | Settings tightened mid-task didn't reach the running task | Runner re-reads settings each step, combined strictly with its starting policy (`674b40a`) |
+| 2 | No re-check after the up-to-60 s confirmation; shallow element check | Fresh snapshot + same control + gate re-run after "Allow once"; live identity check recomputes the label (`3929607`, `713417a`) |
+| 3 | Kill switch not checked at the OS call; per-app AX timeout didn't cover children | Checked right before every AX write and `postToPid`; timeout set on the system-wide element (`975ac78`) |
+| 4 | Panels took keyboard focus → Approve reachable by keyboard | Never key; real mouse click only; 0.8 s arming delay (`3e661f1`) |
+| 5 | Return never checked against Forbidden words | Reads focused control + default button; Forbidden denies; confirmation names it (`3929607`) |
+| 6 | Mic could stay on after releasing the talk key during startup | `ListeningSessionGate` cancels a start in progress (`00dff95`) |
+| 7 | Cloud models (Ollama `-cloud`) would leak through 127.0.0.1 | Model change needs Touch ID; cloud names refused by settings and client (`9a05dfc`) |
 
 **Minors fixed:** accent/width folding and every default phrase tested; invisible formatting
 characters refused; checkers never see the typed text; the run-time app is checked before its
