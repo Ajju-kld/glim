@@ -35,6 +35,7 @@ mkdir -p "$GLIM_APP/Contents/MacOS" "$GLIM_APP/Contents/Helpers" "$GLIM_APP/Cont
 cp "$binary_directory/Glim" "$GLIM_APP/Contents/MacOS/Glim"
 cp "$binary_directory/GlimWatchdog" "$GLIM_APP/Contents/Helpers/GlimWatchdog"
 cp Resources/Glim-Info.plist "$GLIM_APP/Contents/Info.plist"
+cp Resources/Glim.icns "$GLIM_APP/Contents/Resources/AppIcon.icns"
 
 echo "==> Assembling $TESTBED_APP"
 mkdir -p "$TESTBED_APP/Contents/MacOS"

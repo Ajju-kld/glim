@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34238a"/>
+      <stop offset="0.55" stop-color="#1a1250"/>
+      <stop offset="1" stop-color="#0b3a5e"/>
+    </linearGradient>
+    <radialGradient id="topSheen" cx="0.5" cy="0.08" r="0.75">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="pillGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0.5" stop-color="#22d3ee" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.4" stop-color="#a5f3fc"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sparkle" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#8be9fd"/>
+    </linearGradient>
+    <radialGradient id="sparkleGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7dd3fc" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#7dd3fc" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#background)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#topSheen)"/>
+
+  <ellipse cx="512" cy="300" rx="340" ry="160" fill="url(#pillGlow)"/>
+  <rect x="262" y="228" width="500" height="144" rx="72" fill="#000000"/>
+  <rect x="262" y="228" width="500" height="144" rx="72" fill="none" stroke="#67e8f9" stroke-opacity="0.75" stroke-width="6"/>
+  <circle cx="342" cy="300" r="48" fill="url(#orb)"/>
+  <g fill="#22d3ee">
+    <rect x="424" y="276" width="20" height="48" rx="10"/>
+    <rect x="460" y="256" width="20" height="88" rx="10"/>
+    <rect x="496" y="282" width="20" height="36" rx="10"/>
+    <rect x="532" y="264" width="20" height="72" rx="10"/>
+    <rect x="568" y="286" width="20" height="28" rx="10"/>
+    <rect x="604" y="272" width="20" height="56" rx="10"/>
+  </g>
+
+  <circle cx="512" cy="655" r="220" fill="url(#sparkleGlow)"/>
+  <path d="M512 470 C 530 595, 575 637, 697 655 C 575 673, 530 715, 512 840 C 494 715, 449 673, 327 655 C 449 637, 494 595, 512 470 Z" fill="url(#sparkle)"/>
+  <path d="M712 452 C 717 492, 726 501, 766 506 C 726 511, 717 520, 712 560 C 707 520, 698 511, 658 506 C 698 501, 707 492, 712 452 Z" fill="#e0f7ff" fill-opacity="0.9"/>
+</svg>
