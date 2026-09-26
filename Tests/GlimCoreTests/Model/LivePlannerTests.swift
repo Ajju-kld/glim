@@ -88,4 +88,47 @@ struct LivePlannerTests {
             #expect(plan.steps.contains { $0.appName == appName }, "missing \(appName)")
         }
     }
+
+    static let mediaAndCalendarApps = ["Spotify", "Calendar", "Reminders", "Notes", "Safari"]
+
+    /// "Now Playing" and "Play" are the same toggle in Spotify: two such clicks start the music
+    /// and stop it again.
+    @Test func playingMusicClicksPlayOnlyOnce() async throws {
+        let spotifyContext = PlanningContext(
+            goal: "open Spotify and play music", frontAppName: "Finder", windowTitle: "Downloads",
+            elementLabels: ["New Folder"], installedAppNames: Self.mediaAndCalendarApps,
+            runningAppNames: ["Finder", "Spotify"])
+
+        let result = try await planner.makePlan(for: spotifyContext)
+        print("LIVE spotify: \(result)")
+
+        guard case .task(let plan) = result else {
+            Issue.record("Expected a task, got \(result)")
+            return
+        }
+        let clicks = plan.steps.filter { $0.kind == .click }
+        #expect(clicks.count <= 1, "clicks: \(clicks.map(\.summary))")
+    }
+
+    /// Calendar has no Reminders button in its window; reminders are listed in the sidebar the
+    /// Calendars button opens (as "Scheduled Reminders"), so the plan must open it first.
+    @Test func calendarRemindersGoThroughTheCalendarsSidebar() async throws {
+        let calendarContext = PlanningContext(
+            goal: "open Calendar and pick a reminder for me", frontAppName: "Finder",
+            windowTitle: "Downloads", elementLabels: ["New Folder"],
+            installedAppNames: Self.mediaAndCalendarApps, runningAppNames: ["Finder", "Calendar"])
+
+        let result = try await planner.makePlan(for: calendarContext)
+        print("LIVE calendar: \(result)")
+
+        guard case .task(let plan) = result else {
+            Issue.record("Expected a task, got \(result)")
+            return
+        }
+        let calendarTargets = plan.steps.filter { $0.appName == "Calendar" }
+            .compactMap(\.targetDescription)
+        #expect(
+            calendarTargets.first?.localizedCaseInsensitiveCompare("Calendars") == .orderedSame,
+            "Calendar targets: \(calendarTargets)")
+    }
 }

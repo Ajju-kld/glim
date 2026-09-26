@@ -15,6 +15,9 @@ public struct GateContext: Sendable {
     /// For Return: the texts of what it would activate (the focused control and the window's
     /// default button), so they are checked against the risk phrases like a click target.
     public let returnKeyTargetTexts: [String]
+    /// For Return: whether the focused control is a web browser's own address bar, where Return
+    /// only opens an address or a search. Read from where the control sits, never its name.
+    public let returnKeyStaysInBrowserAddressBar: Bool
 
     /// Creates a gate context.
     public init(
@@ -24,7 +27,8 @@ public struct GateContext: Sendable {
         limitViolation: LimitViolation?,
         checkerConcerns: [ConfirmationReason],
         safetyState: SafetyState,
-        returnKeyTargetTexts: [String] = []
+        returnKeyTargetTexts: [String] = [],
+        returnKeyStaysInBrowserAddressBar: Bool = false
     ) {
         self.approvedStep = approvedStep
         self.proposedAction = proposedAction
@@ -33,5 +37,6 @@ public struct GateContext: Sendable {
         self.checkerConcerns = checkerConcerns
         self.safetyState = safetyState
         self.returnKeyTargetTexts = returnKeyTargetTexts
+        self.returnKeyStaysInBrowserAddressBar = returnKeyStaysInBrowserAddressBar
     }
 }

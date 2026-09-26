@@ -126,6 +126,35 @@ public actor AccessibilityService: ScreenReading {
         return texts
     }
 
+    /// Whether the focused control is a browser's own address bar: a text field with no web page
+    /// above it. Anything unreadable on the way up, or a climb that doesn't reach the top, counts
+    /// as not the address bar, so Return there still asks.
+    public func focusedControlIsBrowserAddressBar(in app: ResolvedApp) -> Bool {
+        guard Self.isTrusted, let processIdentifier = app.processIdentifier else {
+            return false
+        }
+        let appElement = applicationElement(for: processIdentifier)
+        guard
+            let focusedElement = Self.elementAttribute(
+                kAXFocusedUIElementAttribute, of: appElement),
+            let focusedRole = Self.stringAttribute(kAXRoleAttribute, of: focusedElement)
+        else {
+            return false
+        }
+        var ancestorRoles: [String] = []
+        var currentElement = focusedElement
+        while let parentElement = Self.elementAttribute(kAXParentAttribute, of: currentElement) {
+            guard ancestorRoles.count < ScreenReadingLimits.maximumAncestorsChecked,
+                let parentRole = Self.stringAttribute(kAXRoleAttribute, of: parentElement)
+            else {
+                return false
+            }
+            ancestorRoles.append(parentRole)
+            currentElement = parentElement
+        }
+        return WebBrowsers.isAddressBar(focusedRole: focusedRole, ancestorRoles: ancestorRoles)
+    }
+
     // MARK: - Shared with actions
 
     func applicationElement(for processIdentifier: pid_t) -> AXUIElement {

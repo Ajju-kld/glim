@@ -155,6 +155,19 @@ struct PlannerTests {
         #expect(PlannerPrompts.planning.contains("quitApp"))
     }
 
+    /// "Now Playing" then "Play" both hit Spotify's play/pause button, so music started and
+    /// stopped again.
+    @Test func plannerIsToldToPressPlayOnce() {
+        #expect(PlannerPrompts.planning.contains("click Play once"))
+    }
+
+    /// Calendar has no Reminders button; its reminders are in the sidebar the Calendars button
+    /// opens, and new reminders belong in the Reminders app.
+    @Test func plannerIsToldWhereCalendarKeepsReminders() {
+        #expect(PlannerPrompts.planning.contains("click \"Calendars\""))
+        #expect(PlannerPrompts.planning.contains("the Reminders app"))
+    }
+
     @Test func planSchemaFollowsTheCurrentLimits() async throws {
         var tightLimits = SafetyLimits.safeDefaults
         tightLimits.maximumActionsPerTask = 5

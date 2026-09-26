@@ -1,5 +1,11 @@
 @testable import GlimCore
 
+extension AppIdentity {
+    static let chrome = AppIdentity(
+        bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", hasValidSignature: true
+    )
+}
+
 extension SafetyState {
     static let allClear = SafetyState(isKillSwitchArmed: true, isWatchdogAlive: true)
 }
@@ -13,7 +19,8 @@ func makeGateContext(
     limitViolation: LimitViolation? = nil,
     checkerConcerns: [ConfirmationReason] = [],
     safetyState: SafetyState = .allClear,
-    returnKeyTargetTexts: [String] = []
+    returnKeyTargetTexts: [String] = [],
+    returnKeyStaysInBrowserAddressBar: Bool = false
 ) -> GateContext {
     let approvedStep = ScreenedStep(
         number: 1,
@@ -27,5 +34,6 @@ func makeGateContext(
         limitViolation: limitViolation,
         checkerConcerns: checkerConcerns,
         safetyState: safetyState,
-        returnKeyTargetTexts: returnKeyTargetTexts)
+        returnKeyTargetTexts: returnKeyTargetTexts,
+        returnKeyStaysInBrowserAddressBar: returnKeyStaysInBrowserAddressBar)
 }

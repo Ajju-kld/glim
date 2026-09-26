@@ -11,4 +11,15 @@ public enum PickSource: String, Sendable, Equatable, Codable {
     case laya
     /// The language model picked it.
     case languageModel
+
+    /// How the Activity Log says who chose the control.
+    public var logPhrase: String {
+        switch self {
+        case .exactLabel: "found by its exact label"
+        case .onlyField: "the only field on screen"
+        case .planMatch: "matched the plan's wording"
+        case .laya: "picked by Laya"
+        case .languageModel: "picked by the AI"
+        }
+    }
 }

@@ -59,29 +59,38 @@ struct TaskRunnerTests {
             policy: ChangingPolicy = ChangingPolicy(testPolicy),
             takeoverMonitor: TakeoverMonitor? = nil,
             timing: RunnerTiming = quickTiming,
-            layaExampleSaver: (@Sendable (LayaExample) async -> Void)? = nil
+            layaExampleSaver: (@Sendable (LayaExample) async -> Void)? = nil,
+            extraRunningApps: [RunningApp] = []
         ) -> TaskRunner {
-            let runningApps = [
-                RunningApp(
-                    name: "Testbed", bundleIdentifier: "dev.straxs.Glim.Testbed",
-                    processIdentifier: 300,
-                    isFrontmost: frontmostBundleIdentifier == "dev.straxs.Glim.Testbed",
-                    bundleURL: testbedURL),
-                RunningApp(
-                    name: "Messages", bundleIdentifier: "com.apple.MobileSMS",
-                    processIdentifier: 400,
-                    isFrontmost: false, bundleURL: nil),
-                RunningApp(
-                    name: "Passwords", bundleIdentifier: "com.apple.Passwords",
-                    processIdentifier: 500,
-                    isFrontmost: frontmostBundleIdentifier == "com.apple.Passwords", bundleURL: nil),
-            ]
+            let runningApps =
+                [
+                    RunningApp(
+                        name: "Testbed", bundleIdentifier: "dev.straxs.Glim.Testbed",
+                        processIdentifier: 300,
+                        isFrontmost: frontmostBundleIdentifier == "dev.straxs.Glim.Testbed",
+                        bundleURL: testbedURL),
+                    RunningApp(
+                        name: "Messages", bundleIdentifier: "com.apple.MobileSMS",
+                        processIdentifier: 400,
+                        isFrontmost: false, bundleURL: nil),
+                    RunningApp(
+                        name: "Passwords", bundleIdentifier: "com.apple.Passwords",
+                        processIdentifier: 500,
+                        isFrontmost: frontmostBundleIdentifier == "com.apple.Passwords",
+                        bundleURL: nil),
+                ] + extraRunningApps
             let catalog = FakeAppCatalog(
                 installed: [
                     InstalledApp(
                         name: "Testbed", fileName: "Testbed",
                         bundleIdentifier: "dev.straxs.Glim.Testbed", url: testbedURL)
-                ],
+                ]
+                    + extraRunningApps.map { app in
+                        InstalledApp(
+                            name: app.name, fileName: app.name,
+                            bundleIdentifier: app.bundleIdentifier,
+                            url: app.bundleURL ?? URL(filePath: "/Applications/\(app.name).app"))
+                    },
                 running: runningApps)
             let resolver = AppResolver(
                 catalog: catalog,

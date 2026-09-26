@@ -134,4 +134,39 @@ extension TaskRunnerTests {
             #expect(timing.contains("waiting for you "))
         }
     }
+
+    /// The log names the control each step acted on and who chose it, so a wrong click (such
+    /// as "first search result" landing on something else) can be seen afterwards.
+    @Test func clickLogsTheControlItActedOnAndWhoChoseIt() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = makeHarness(in: directory, modelAnswers: [Self.clickNewItemPlan])
+
+            #expect(await harness.run("click new item") == .completed)
+
+            let performedLines = try await harness.auditLog.readAllEvents()
+                .filter { $0.kind == .actionPerformed }.map(\.summary)
+            #expect(
+                performedLines == [
+                    "Click “New Item” in Testbed → [1] New Item (Button), found by its exact label"
+                ])
+        }
+    }
+
+    @Test func controlPickedByTheModelIsLoggedAsTheAIsPick() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = makeHarness(
+                in: directory,
+                modelAnswers: [Self.clickFirstButtonPlan, #"{"elementNumber":1,"blocked":false}"#],
+                confirmAnswers: [true])
+
+            #expect(await harness.run("click the first button") == .completed)
+
+            let performedLines = try await harness.auditLog.readAllEvents()
+                .filter { $0.kind == .actionPerformed }.map(\.summary)
+            #expect(
+                performedLines == [
+                    "Click “the first button” in Testbed → [1] New Item (Button), picked by the AI"
+                ])
+        }
+    }
 }

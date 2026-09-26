@@ -23,6 +23,8 @@ public struct GlimSettings: Sendable, Equatable, Codable {
     /// Whether steps Laya reviewed are kept on this Mac as training examples. Off until the
     /// owner turns it on.
     public var savesLayaExamples: Bool
+    /// The screen glow's look during screen chat. Changing it doesn't touch safety.
+    public var glowTheme: GlowTheme
 
     /// Creates settings.
     public init(
@@ -30,17 +32,19 @@ public struct GlimSettings: Sendable, Equatable, Codable {
         jev: JevSettings,
         plannerModelName: String,
         isNarrationMuted: Bool,
-        savesLayaExamples: Bool = false
+        savesLayaExamples: Bool = false,
+        glowTheme: GlowTheme = .standard
     ) {
         self.safetyPolicy = safetyPolicy
         self.jev = jev
         self.plannerModelName = plannerModelName
         self.isNarrationMuted = isNarrationMuted
         self.savesLayaExamples = savesLayaExamples
+        self.glowTheme = glowTheme
     }
 
     private enum CodingKeys: String, CodingKey {
-        case safetyPolicy, jev, plannerModelName, isNarrationMuted, savesLayaExamples
+        case safetyPolicy, jev, plannerModelName, isNarrationMuted, savesLayaExamples, glowTheme
     }
 
     /// Reads saved settings; files written before a setting existed get its default.
@@ -52,5 +56,6 @@ public struct GlimSettings: Sendable, Equatable, Codable {
         isNarrationMuted = try container.decode(Bool.self, forKey: .isNarrationMuted)
         savesLayaExamples =
             try container.decodeIfPresent(Bool.self, forKey: .savesLayaExamples) ?? false
+        glowTheme = try container.decodeIfPresent(GlowTheme.self, forKey: .glowTheme) ?? .standard
     }
 }

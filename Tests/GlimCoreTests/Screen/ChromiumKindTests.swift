@@ -50,4 +50,28 @@ struct ChromiumKindTests {
 
         #expect(kind == nil)
     }
+
+    /// Apps embedding Chromium ignore the accessibility switch, so Glim starts them with the
+    /// flag that builds their tree from launch.
+    @Test func chromiumEmbeddedAppsLaunchWithAccessibilityOn() {
+        #expect(ChromiumKind.chromiumEmbedded.launchArguments == ["--force-renderer-accessibility"])
+    }
+
+    @Test(arguments: [ChromiumKind.electron, .chromeBrowser])
+    func otherKindsLaunchNormally(kind: ChromiumKind) {
+        #expect(kind.launchArguments.isEmpty)
+    }
+
+    /// Opened from the Dock, Spotify starts without the flag; the log says how to fix that.
+    @Test func chromiumEmbeddedAppWithNoControlsExplainsTheFix() {
+        #expect(
+            ChromiumKind.chromiumEmbedded.noControlsNote(appName: "Spotify")
+                == " Spotify only shows its controls when Glim opens it: quit Spotify, then ask Glim to open it."
+        )
+    }
+
+    @Test(arguments: [ChromiumKind.electron, .chromeBrowser])
+    func otherKindsHaveNoNote(kind: ChromiumKind) {
+        #expect(kind.noControlsNote(appName: "Slack").isEmpty)
+    }
 }

@@ -54,6 +54,59 @@ public struct WindowScreenshotter: ScreenshotCapturing {
         }
     }
 
+    /// Captures the main display, leaving out the apps `privacy` names, fitted to the same size
+    /// limit as a window.
+    public func captureDisplay(leavingOut privacy: ScreenChatPrivacy)
+        async throws(ScreenReadingError) -> Data
+    {
+        guard
+            CGPreflightScreenCaptureAccess()
+                || (mayPromptForPermission && CGRequestScreenCaptureAccess())
+        else {
+            throw .screenRecordingNotAllowed
+        }
+        let image: CGImage
+        do {
+            image = try await Self.captureMainDisplay(leavingOut: privacy)
+        } catch let readingError as ScreenReadingError {
+            throw readingError
+        } catch {
+            throw .captureFailed(reason: error.localizedDescription)
+        }
+        do {
+            return try Self.pngData(from: image)
+        } catch {
+            throw .captureFailed(reason: "Could not encode the screenshot.")
+        }
+    }
+
+    private static func captureMainDisplay(leavingOut privacy: ScreenChatPrivacy)
+        async throws -> CGImage
+    {
+        let shareableContent = try await SCShareableContent.excludingDesktopWindows(
+            false, onScreenWindowsOnly: true)
+        let mainDisplayIdentifier = CGMainDisplayID()
+        guard
+            let display = shareableContent.displays.first(where: {
+                $0.displayID == mainDisplayIdentifier
+            }) ?? shareableContent.displays.first
+        else {
+            throw ScreenReadingError.captureFailed(reason: "No display was found.")
+        }
+        let leftOutApps = shareableContent.applications.filter { application in
+            privacy.leavesOut(bundleIdentifier: application.bundleIdentifier)
+        }
+        let pixelSize = fittedPixelSize(forPointSize: display.frame.size, scale: captureScale)
+        let configuration = SCStreamConfiguration()
+        configuration.width = pixelSize.width
+        configuration.height = pixelSize.height
+        configuration.showsCursor = false
+        return try await SCScreenshotManager.captureImage(
+            contentFilter: SCContentFilter(
+                display: display, excludingApplications: leftOutApps, exceptingWindows: []),
+            configuration: configuration)
+    }
+
     /// The window's image and its frame in global screen points (top-left origin).
     private static func captureFrontWindow(of processIdentifier: pid_t, appName: String)
         async throws -> (image: CGImage, frame: CGRect)

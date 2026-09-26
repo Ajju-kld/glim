@@ -1032,3 +1032,24 @@ compressed and decompressed while idle, `kernel_task` at 34 % CPU, and `qwen3-vl
 - `qwen3-vl:8b` was deleted from this Mac at the owner's request (`ollama pull qwen3-vl:8b` brings
   it back). The earlier measurement (4b no faster, worse plans) was taken without memory
   pressure; this change trades plan quality for headroom until memory is freed.
+
+## 2026-09-26 — Browser pages, Return in the address bar, Spotify's controls, clearer log
+
+Owner's runs: "search Harvard University and open the first result" said *completed* but
+didn't open it; Return in Chrome's address bar asked every time; Spotify showed no controls, so
+each click went through a screenshot and a confirmation (10–22 s each); "open Spotify and play
+music" planned *Now Playing* then *Play*, which hit the same play/pause toggle twice; "open
+Calendar and pick a reminder" blocked after three misses on a "Reminders" button that doesn't
+exist.
+
+| Log symptom | Cause | Fix |
+|---|---|---|
+| `Click “first search result” … pick 2.7 sec` 3 s after Return, no "read window" | The window read right after Return (half-loaded) was reused by the next step | In a web browser, after a click or Return, Glim reads the window again until the new page stops changing (up to 5 s, every 0.3 s) before the next step reuses it (`PageLoadSettle`) |
+| `Press Return in Google Chrome: needsConfirmation(pressReturn(activates: "Address and search bar"))` | Return always asked | Return in a known browser's own address bar doesn't ask. Decided from where the focused control sits — a text field with no `AXWebArea` above it — never its name (`WebBrowsers.isAddressBar`, `AccessibilityService.focusedControlIsBrowserAddressBar`). `docs/SAFETY.md` updated |
+| `Controls read from “Spotify Free” … none.` | Spotify embeds Chromium (CEF), which ignores `AXEnhancedUserInterface` unless started with `--force-renderer-accessibility` (nchudleigh/homerow#31 shows the same). Relaunched with the flag, the same task took 3.2 s and 2.2 s per click, no screenshot, no prompt | When Glim starts a CEF app it passes the flag (`ChromiumKind.launchArguments`). A Spotify started from the Dock still shows nothing; the log now says "quit Spotify, then ask Glim to open it" |
+| `Actions performed: Click “Now Playing” in Spotify` — which control? | The log named the step, not the control | `actionPerformed` names the control and who chose it: `Click “Play” in Spotify → [12] Play (Button), found by its exact label` |
+| Plans `Now Playing → Play`; Calendar `Click “Reminders”` ×3 | Weak plans from `qwen3-vl:4b` | Planning prompt: play/pause is one button, click Play once; Calendar's reminders are behind "Calendars", new reminders go in the Reminders app. Live runs on `qwen3-vl:4b`: Spotify → `Open Spotify → Click “Play”`; Calendar → `Open Calendar → Click “Calendars” → Click “Reminders”` (matches "Scheduled Reminders" in the sidebar) |
+
+Not changed: the media-key play/pause action, the "always allow screenshot clicks" button and
+plan caching are still proposals.
+

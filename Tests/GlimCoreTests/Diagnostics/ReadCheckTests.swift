@@ -23,6 +23,8 @@ struct PerAppScreenReader: ScreenReading {
     }
 
     func returnKeyTargetTexts(in app: ResolvedApp) async -> [String] { [] }
+
+    func focusedControlIsBrowserAddressBar(in app: ResolvedApp) async -> Bool { false }
 }
 
 struct ReadCheckTests {

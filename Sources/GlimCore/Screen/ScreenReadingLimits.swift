@@ -17,6 +17,9 @@ public enum ScreenReadingLimits {
     /// Tunable: how long a just-woken Chromium app may take to show its controls. Chromium
     /// waits two seconds after the switch is set before building its tree.
     public static let chromiumTreeWait = Duration.seconds(3)
+    /// Tunable: most elements climbed above the focused control to see whether it sits in a web
+    /// page. A browser's address bar is a few levels below its window; deeper means a page.
+    public static let maximumAncestorsChecked = 40
     /// Tunable: pause between reads while waiting for a Chromium app's controls.
     public static let chromiumTreePollInterval = Duration.milliseconds(250)
     /// Business rule (spec §10): with fewer labelled controls than this, questions use a

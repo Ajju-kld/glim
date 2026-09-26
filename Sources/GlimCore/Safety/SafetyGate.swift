@@ -169,6 +169,14 @@ public struct SafetyGate: Sendable {
         return context.approvedStep.action.summary
     }
 
+    /// Return in a known browser's own address bar opens an address or a search; it can't send
+    /// or submit anything, so it doesn't ask. Risky words in what it activates still do.
+    private static func returnOnlyOpensAnAddress(in context: GateContext) -> Bool {
+        context.returnKeyStaysInBrowserAddressBar
+            && WebBrowsers.isBrowser(
+                bundleIdentifier: context.proposedAction.targetApp.bundleIdentifier)
+    }
+
     private static func isReturnKey(_ action: ProposedAction) -> Bool {
         action.kind == .pressKey && action.key == .returnKey
     }
@@ -183,7 +191,7 @@ public struct SafetyGate: Sendable {
                 .riskyWord(matchedPhrase: matchedPhrase, elementLabel: riskTargetLabel(of: context))
             )
         }
-        if Self.isReturnKey(action) {
+        if Self.isReturnKey(action), !Self.returnOnlyOpensAnAddress(in: context) {
             reasons.append(.pressReturn(activates: context.returnKeyTargetTexts.first))
         }
         if let element = action.targetElement,

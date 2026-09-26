@@ -18,7 +18,8 @@ Glim stops and asks you, at that moment, only before a step that:
 
 - clicks a control whose name has a Confirm word (send, submit, post, share, reply, forward,
   accept, agree, close);
-- presses Return (which can send);
+- presses Return (which can send) — except in a web browser's own address bar, where Return
+  only opens an address or a search (see below);
 - quits an app;
 - acts in a **supervised** app (VS Code, Cursor, Xcode, Claude, ChatGPT…).
 
@@ -84,6 +85,14 @@ and full-width "ｄｅｌｅｔｅ" are all caught, while harmless look-alikes s
 **Return is checked too.** Before pressing Return, Glim reads what it would activate — the
 focused control and the window's default button — and applies the same rules: a Forbidden word
 blocks it, and the confirmation names the control ("Pressing Return would activate “Send”").
+
+**Return in a browser's address bar doesn't ask.** In a known web browser (Chrome-family,
+Safari, Firefox) with Full control, Return in the browser's own address bar only opens an
+address or a search, so Glim presses it without asking. Glim decides this from *where* the
+focused control sits, never from its name: it must be a text field with no web page above it in
+the window. A text box on a web page — even one named "Address and search bar" — still asks,
+and so does anything Glim can't read clearly. Confirm and Forbidden words in what Return
+activates still apply.
 
 Buttons with no label at all (like an icon-only trash can) are never offered to the AI. Glim
 has no Delete key and no keyboard shortcuts it can press.

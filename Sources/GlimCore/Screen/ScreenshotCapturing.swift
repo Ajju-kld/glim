@@ -19,6 +19,10 @@ public struct WindowCapture: Sendable, Equatable {
 public protocol ScreenshotCapturing: Sendable {
     /// Captures the app's frontmost on-screen window together with its frame.
     func captureFrontWindow(of app: ResolvedApp) async throws(ScreenReadingError) -> WindowCapture
+    /// Captures the whole main display as PNG data for screen chat, with every app `privacy`
+    /// leaves out removed by the capture itself.
+    func captureDisplay(leavingOut privacy: ScreenChatPrivacy) async throws(ScreenReadingError)
+        -> Data
 }
 
 extension ScreenshotCapturing {

@@ -45,6 +45,7 @@ extension TaskRunner {
             }
         }
         var target: UIElementSnapshot?
+        var targetPickedBy: PickSource?
         var visualClick: VisualClick?
         var checkerConcerns: [ConfirmationReason] = []
         if step.action.kind.needsTargetElement, let snapshotBefore {
@@ -52,8 +53,9 @@ extension TaskRunner {
                 for: step, goal: plan.goal, snapshot: snapshotBefore, limiter: &limiter,
                 timings: &timings)
             {
-            case .element(let element, let concerns):
+            case .element(let element, let pickedBy, let concerns):
                 target = element
+                targetPickedBy = pickedBy
                 checkerConcerns = concerns
             case .sight(let click):
                 visualClick = click
@@ -66,7 +68,9 @@ extension TaskRunner {
             gateContext(
                 for: step, app: app, target: target, visualTarget: visualClick?.target,
                 elements: snapshotBefore?.table.elements ?? [], limiter: limiter,
-                checkerConcerns: checkerConcerns, returnKeyTargetTexts: returnKeyTargetTexts))
+                checkerConcerns: checkerConcerns, returnKeyTargetTexts: returnKeyTargetTexts,
+                returnKeyStaysInBrowserAddressBar: await returnKeyStaysInBrowserAddressBar(
+                    for: step.action, in: app)))
         try await audit(.gateDecision, "\(step.action.summary): \(decision)")
         var executionTarget = target
         switch decision {
@@ -104,7 +108,8 @@ extension TaskRunner {
         try await audit(
             .actionPerformed,
             visualClick.map { Self.clickedBySightSummary($0.target, in: app) }
-                ?? step.action.summary)
+                ?? Self.performedSummary(
+                    of: step.action, on: executionTarget, pickedBy: targetPickedBy))
         timings.record("act", ContinuousClock.now - actionStart)
 
         if case .openApp(let appName) = step.action {
@@ -173,7 +178,9 @@ extension TaskRunner {
             gateContext(
                 for: step, app: app, target: freshTarget, visualTarget: visualTarget,
                 elements: freshElements, limiter: limiter, checkerConcerns: checkerConcerns,
-                returnKeyTargetTexts: await returnKeyTargetTexts(for: step.action, in: app)))
+                returnKeyTargetTexts: await returnKeyTargetTexts(for: step.action, in: app),
+                returnKeyStaysInBrowserAddressBar: await returnKeyStaysInBrowserAddressBar(
+                    for: step.action, in: app)))
         try await audit(.gateDecision, "After confirmation — \(step.action.summary): \(decision)")
         switch decision {
         case .allow:
@@ -197,7 +204,8 @@ extension TaskRunner {
         elements: [UIElementSnapshot],
         limiter: ActionLimiter,
         checkerConcerns: [ConfirmationReason],
-        returnKeyTargetTexts: [String]
+        returnKeyTargetTexts: [String],
+        returnKeyStaysInBrowserAddressBar: Bool
     ) -> GateContext {
         GateContext(
             approvedStep: step,
@@ -211,7 +219,21 @@ extension TaskRunner {
             safetyState: SafetyState(
                 isKillSwitchArmed: dependencies.killSwitch.isArmed,
                 isWatchdogAlive: dependencies.isWatchdogAlive()),
-            returnKeyTargetTexts: returnKeyTargetTexts)
+            returnKeyTargetTexts: returnKeyTargetTexts,
+            returnKeyStaysInBrowserAddressBar: returnKeyStaysInBrowserAddressBar)
+    }
+
+    /// Whether Return would land in a browser's own address bar. Only asked of browsers, so no
+    /// other app's focused control is climbed.
+    private func returnKeyStaysInBrowserAddressBar(for action: StepAction, in app: ResolvedApp)
+        async -> Bool
+    {
+        guard Self.key(of: action) == .returnKey,
+            WebBrowsers.isBrowser(bundleIdentifier: app.identity.bundleIdentifier)
+        else {
+            return false
+        }
+        return await dependencies.screenReader.focusedControlIsBrowserAddressBar(in: app)
     }
 
     private func returnKeyTargetTexts(for action: StepAction, in app: ResolvedApp) async -> [String]
@@ -251,7 +273,7 @@ extension TaskRunner {
     /// What a step acts on: a control read from the window with the checkers' concerns, or a
     /// point found by sight for a click whose control could not be read.
     enum ChosenTarget {
-        case element(UIElementSnapshot, concerns: [ConfirmationReason])
+        case element(UIElementSnapshot, pickedBy: PickSource, concerns: [ConfirmationReason])
         case sight(VisualClick)
     }
 
@@ -322,7 +344,7 @@ extension TaskRunner {
                         for: step, goal: goal, snapshot: snapshot, chosen: element,
                         pickedBy: pickedBy)
                 }
-                return .element(element, concerns: concerns)
+                return .element(element, pickedBy: pickedBy, concerns: concerns)
             }
         }
     }
@@ -443,6 +465,19 @@ extension TaskRunner {
         }
     }
 
+    /// The step as done, with the control it acted on and who chose that control, so the log
+    /// shows what a vague target such as "first search result" really landed on.
+    static func performedSummary(
+        of action: StepAction, on element: UIElementSnapshot?, pickedBy: PickSource?
+    ) -> String {
+        guard let element, let pickedBy else {
+            return action.summary
+        }
+        let controlDescription =
+            "[\(element.number)] \(SecretMasker.masked(element.label)) (\(ElementRoles.displayName(of: element.role)))"
+        return "\(action.summary) → \(controlDescription), \(pickedBy.logPhrase)"
+    }
+
     static func clickedBySightSummary(_ visualTarget: VisualTarget, in app: ResolvedApp)
         -> String
     {
@@ -478,13 +513,19 @@ extension TaskRunner {
             : ""
         let controlList =
             controlDescriptions.isEmpty ? "none" : controlDescriptions.joined(separator: ", ")
+        let noControlsNote =
+            controlDescriptions.isEmpty
+            ? ChromiumKind.detect(
+                bundleURL: snapshot.app.bundleURL,
+                bundleIdentifier: snapshot.app.identity.bundleIdentifier)?
+                .noControlsNote(appName: snapshot.app.identity.displayName) ?? "" : ""
         let leftOutLabels = snapshot.table.leftOutControlLabels.map(SecretMasker.masked)
         let leftOutNote =
             leftOutLabels.isEmpty
             ? "" : " Left out by the limit: \(leftOutLabels.joined(separator: ", "))."
         try await audit(
             .controlsOffered,
-            "Controls read from \(windowName) for “\(step.action.summary)”: \(controlList).\(truncationNote)\(leftOutNote)"
+            "Controls read from \(windowName) for “\(step.action.summary)”: \(controlList).\(noControlsNote)\(truncationNote)\(leftOutNote)"
         )
     }
 
@@ -604,7 +645,7 @@ extension TaskRunner {
         else {
             return (true, nil)
         }
-        let after: ScreenSnapshot
+        var after: ScreenSnapshot
         do {
             after = try await dependencies.screenReader.snapshotFrontWindow(of: runningApp)
         } catch {
@@ -613,12 +654,45 @@ extension TaskRunner {
             )
             return (false, nil)
         }
+        if PageLoadSettle.waitsForPage(
+            after: step.action, inAppWithBundleIdentifier: app.identity.bundleIdentifier)
+        {
+            after = try await settledPage(in: runningApp, firstRead: after, before: before)
+        }
         if let typedText = step.action.approvedText,
             after.table.elements.contains(where: { $0.value?.contains(typedText) == true })
         {
             return (true, after)
         }
         return (after.table != before.table || after.windowTitle != before.windowTitle, after)
+    }
+
+    /// Reads the browser window again until its new page stops changing, so the next step picks
+    /// from the loaded page rather than the one shown right after acting. When time runs out, or
+    /// a read fails, the latest read is kept and the step goes on as before.
+    private func settledPage(
+        in app: ResolvedApp, firstRead: ScreenSnapshot, before: ScreenSnapshot
+    ) async throws -> ScreenSnapshot {
+        let deadline = ContinuousClock.now + timing.pageSettleTimeout
+        var previousRead: ScreenSnapshot?
+        var latestRead = firstRead
+        while !PageLoadSettle.hasSettled(latestRead, previous: previousRead, before: before),
+            ContinuousClock.now < deadline
+        {
+            try ensureArmed()
+            try await pause(for: timing.pageSettlePollInterval)
+            previousRead = latestRead
+            do {
+                latestRead = try await dependencies.screenReader.snapshotFrontWindow(of: app)
+            } catch {
+                try await audit(
+                    .screenReadFailed,
+                    "Could not re-read \(app.identity.displayName) while its page loaded: \(error.explanation)"
+                )
+                return latestRead
+            }
+        }
+        return latestRead
     }
 
     private static func key(of action: StepAction) -> AllowedKey? {

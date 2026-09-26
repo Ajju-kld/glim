@@ -12,6 +12,8 @@ final class ScriptedScreenReader: ScreenReading {
     private let readCount = Mutex(0)
     private let readApps = Mutex<[String]>([])
     private let readsWithoutWindow: Int
+    private let tableSequence: [ElementTable]
+    private let focusIsBrowserAddressBar: Bool
 
     /// Creates a reader that returns `table`.
     ///
@@ -21,14 +23,20 @@ final class ScriptedScreenReader: ScreenReading {
     ///   - returnTargetTexts: What pressing Return would activate.
     ///   - readsWithoutWindow: How many reads report no window before one appears, as when an
     ///     app that was running with no windows is reopened.
+    ///   - tableSequence: When not empty, the tables returned by successive reads, the last one
+    ///     repeating, as when a web page loads; `table` and `changesEveryRead` are then unused.
+    ///   - focusIsBrowserAddressBar: Whether the focused control is a browser's address bar.
     init(
         table: ElementTable, changesEveryRead: Bool = true, returnTargetTexts: [String] = [],
-        readsWithoutWindow: Int = 0
+        readsWithoutWindow: Int = 0, tableSequence: [ElementTable] = [],
+        focusIsBrowserAddressBar: Bool = false
     ) {
         currentTable = Mutex(table)
         self.changesEveryRead = changesEveryRead
         self.returnTargetTexts = returnTargetTexts
         self.readsWithoutWindow = readsWithoutWindow
+        self.tableSequence = tableSequence
+        self.focusIsBrowserAddressBar = focusIsBrowserAddressBar
     }
 
     /// Simulates the screen changing, for example while a panel waits for the person.
@@ -38,6 +46,10 @@ final class ScriptedScreenReader: ScreenReading {
 
     func returnKeyTargetTexts(in app: ResolvedApp) async -> [String] {
         returnTargetTexts
+    }
+
+    func focusedControlIsBrowserAddressBar(in app: ResolvedApp) async -> Bool {
+        focusIsBrowserAddressBar
     }
 
     var appsRead: [String] {
@@ -53,6 +65,12 @@ final class ScriptedScreenReader: ScreenReading {
         }
         guard readNumber > readsWithoutWindow else {
             throw .noWindow(appName: app.identity.displayName)
+        }
+        if !tableSequence.isEmpty {
+            let sequenceIndex = min(readNumber - readsWithoutWindow, tableSequence.count) - 1
+            return ScreenSnapshot(
+                app: app, windowTitle: "\(app.identity.displayName) window",
+                table: tableSequence[sequenceIndex])
         }
         let table = currentTable.withLock { $0 }
         let readableText =
@@ -74,6 +92,7 @@ final class RecordingScreenshotter: ScreenshotCapturing {
     static let defaultWindowFrame = CGRect(x: 100, y: 100, width: 800, height: 600)
 
     private let captureCount = Mutex(0)
+    private let displayPrivacies = Mutex<[ScreenChatPrivacy]>([])
     private let windowFrame: CGRect
 
     init(windowFrame: CGRect = defaultWindowFrame) {
@@ -82,6 +101,20 @@ final class RecordingScreenshotter: ScreenshotCapturing {
 
     var captures: Int {
         captureCount.withLock { $0 }
+    }
+
+    /// The privacy rule of each whole-display capture, in order.
+    var displayCaptures: [ScreenChatPrivacy] {
+        displayPrivacies.withLock { $0 }
+    }
+
+    static let displayPNG = Data([0x89, 0x50, 0x4E, 0x47, 0xD1])
+
+    func captureDisplay(leavingOut privacy: ScreenChatPrivacy) async throws(ScreenReadingError)
+        -> Data
+    {
+        displayPrivacies.withLock { $0.append(privacy) }
+        return Self.displayPNG
     }
 
     func captureFrontWindow(of app: ResolvedApp) async throws(ScreenReadingError) -> WindowCapture {

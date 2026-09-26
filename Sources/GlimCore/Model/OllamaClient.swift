@@ -48,21 +48,13 @@ public struct OllamaClient: LanguageModel {
     /// Ollama intact; the model generates fields in that order.
     public func respond(to request: LanguageModelRequest) async throws(LanguageModelError) -> String
     {
-        var userMessage: JSONValue = ["role": "user", "content": .string(request.userPrompt)]
-        if !request.imagesPNG.isEmpty {
-            userMessage = userMessage.setting(
-                "images", to: .array(request.imagesPNG.map { .string($0.base64EncodedString()) }))
-        }
         let chatRequest: JSONValue = [
             "model": .string(modelName),
             "stream": false,
             "think": false,
             "keep_alive": .string(Self.keepModelLoadedFor),
             "format": request.responseSchema,
-            "messages": [
-                ["role": "system", "content": .string(request.systemPrompt)],
-                userMessage,
-            ],
+            "messages": .array(Self.messages(for: request)),
             "options": [
                 "temperature": .number(Self.planningTemperature),
                 "num_predict": .integer(request.maximumAnswerTokens),
@@ -71,6 +63,37 @@ public struct OllamaClient: LanguageModel {
         ]
         let data = try await send(path: "/api/chat", method: "POST", body: try encoded(chatRequest))
         return try Self.answer(in: decode(ChatResponse.self, from: data).message)
+    }
+
+    /// The chat messages: the system prompt, then the question with its screenshots; in screen
+    /// chat, the screenshots first on their own, then each earlier turn, then the question.
+    static func messages(for request: LanguageModelRequest) -> [JSONValue] {
+        let systemMessage: JSONValue = ["role": "system", "content": .string(request.systemPrompt)]
+        let images = JSONValue.array(
+            request.imagesPNG.map { .string($0.base64EncodedString()) })
+        var questionMessage: JSONValue = ["role": "user", "content": .string(request.userPrompt)]
+        guard let earlierTurns = request.earlierTurns else {
+            if !request.imagesPNG.isEmpty {
+                questionMessage = questionMessage.setting("images", to: images)
+            }
+            return [systemMessage, questionMessage]
+        }
+        var messages = [systemMessage]
+        if !request.imagesPNG.isEmpty {
+            let screenMessage: JSONValue = [
+                "role": "user", "content": .string(LanguageModelRequest.screenChatScreenshotNote),
+            ]
+            messages.append(screenMessage.setting("images", to: images))
+        }
+        for turn in earlierTurns {
+            messages.append(["role": "user", "content": .string(turn.request)])
+            messages.append([
+                "role": "assistant",
+                "content": .string(turn.reply ?? LanguageModelRequest.taskTurnReply),
+            ])
+        }
+        messages.append(questionMessage)
+        return messages
     }
 
     /// Loads the model into memory without generating anything, so the next request doesn't

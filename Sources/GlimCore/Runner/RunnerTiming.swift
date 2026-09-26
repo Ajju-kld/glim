@@ -9,20 +9,29 @@ public struct RunnerTiming: Sendable {
     /// Tunable: how long a step waits for its app to show a window, for example after Notes is
     /// reopened with every window closed.
     public let windowWaitTimeout: Duration
+    /// Tunable: how long Glim waits for a web page to finish loading after a click or Return in
+    /// a browser, before the next step reads it. A slow page is read as it is when time runs out.
+    public let pageSettleTimeout: Duration
+    /// Tunable: how often the browser window is read while its page loads.
+    public let pageSettlePollInterval: Duration
 
     /// The live timing.
     public static let standard = RunnerTiming(
         settleAfterAction: .milliseconds(250), appLaunchTimeout: .seconds(8),
-        appLaunchPollInterval: .milliseconds(100), windowWaitTimeout: .seconds(3))
+        appLaunchPollInterval: .milliseconds(100), windowWaitTimeout: .seconds(3),
+        pageSettleTimeout: .seconds(5), pageSettlePollInterval: .milliseconds(300))
 
     /// Creates a timing.
     public init(
         settleAfterAction: Duration, appLaunchTimeout: Duration, appLaunchPollInterval: Duration,
-        windowWaitTimeout: Duration
+        windowWaitTimeout: Duration, pageSettleTimeout: Duration = .seconds(5),
+        pageSettlePollInterval: Duration = .milliseconds(300)
     ) {
         self.settleAfterAction = settleAfterAction
         self.appLaunchTimeout = appLaunchTimeout
         self.appLaunchPollInterval = appLaunchPollInterval
         self.windowWaitTimeout = windowWaitTimeout
+        self.pageSettleTimeout = pageSettleTimeout
+        self.pageSettlePollInterval = pageSettlePollInterval
     }
 }

@@ -98,9 +98,14 @@ public struct LiveExecutor: ActionPerforming {
                 appName: app.identity.displayName, reason: "Its location is unknown.")
         }
         try ensureArmed()
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.arguments =
+            ChromiumKind.detect(
+                bundleURL: bundleURL, bundleIdentifier: app.identity.bundleIdentifier)?
+            .launchArguments ?? []
         do {
             _ = try await NSWorkspace.shared.openApplication(
-                at: bundleURL, configuration: NSWorkspace.OpenConfiguration())
+                at: bundleURL, configuration: configuration)
         } catch {
             throw .appDidNotOpen(
                 appName: app.identity.displayName, reason: error.localizedDescription)

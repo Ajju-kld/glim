@@ -109,40 +109,9 @@ struct GlimOrbView: View {
 
     // MARK: - Style
 
-    /// Four colours per mood, bright to deep.
+    /// Four colours per mood, bright to deep, shared with the screen glow.
     private var palette: [Color] {
-        switch mood {
-        case .listening:
-            [
-                Color(red: 0.35, green: 0.95, blue: 1.0), Color(red: 0.3, green: 0.45, blue: 1.0),
-                Color(red: 0.75, green: 0.35, blue: 1.0), Color(red: 1.0, green: 0.45, blue: 0.8),
-            ]
-        case .thinking:
-            [
-                Color(red: 0.95, green: 0.4, blue: 1.0), Color(red: 0.45, green: 0.3, blue: 1.0),
-                Color(red: 1.0, green: 0.5, blue: 0.55), Color(red: 0.3, green: 0.75, blue: 1.0),
-            ]
-        case .acting:
-            [
-                Color(red: 0.4, green: 1.0, blue: 0.75), Color(red: 0.1, green: 0.75, blue: 0.85),
-                Color(red: 0.35, green: 0.55, blue: 1.0), Color(red: 0.7, green: 1.0, blue: 0.5),
-            ]
-        case .waiting:
-            [
-                Color(red: 1.0, green: 0.8, blue: 0.3), Color(red: 1.0, green: 0.5, blue: 0.25),
-                Color(red: 1.0, green: 0.4, blue: 0.55), Color(red: 1.0, green: 0.9, blue: 0.6),
-            ]
-        case .done:
-            [
-                Color(red: 0.45, green: 1.0, blue: 0.6), Color(red: 0.15, green: 0.75, blue: 0.55),
-                Color(red: 0.4, green: 0.9, blue: 0.9), Color(red: 0.8, green: 1.0, blue: 0.7),
-            ]
-        case .alert:
-            [
-                Color(red: 1.0, green: 0.35, blue: 0.35), Color(red: 0.8, green: 0.1, blue: 0.25),
-                Color(red: 1.0, green: 0.55, blue: 0.3), Color(red: 1.0, green: 0.3, blue: 0.5),
-            ]
-        }
+        OrbPalette.colours(for: mood).map(Color.init)
     }
 
     /// The palette spread over the 3×3 mesh so neighbouring points differ.

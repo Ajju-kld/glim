@@ -43,6 +43,39 @@ struct OllamaClientTests {
         #expect(messages.first?["images"] == nil)
     }
 
+    /// Screen chat puts the screenshot first, then the earlier turns, then the new question, so
+    /// a follow-up about an unchanged screen starts with the same messages and Ollama reuses its
+    /// cached reading of the image.
+    @Test func screenChatSendsTheScreenFirstThenTheConversation() async throws {
+        let (client, fakeTransport) = makeClient(replies: [
+            .response(
+                statusCode: 200,
+                body: #"{"message":{"role":"assistant","content":"{}"},"done":true}"#)
+        ])
+        let screenChatRequest = LanguageModelRequest(
+            systemPrompt: "You answer.", userPrompt: "Question: and the second one?",
+            responseSchema: ["type": "object"], imagesPNG: [Data([0x89, 0x50])],
+            earlierTurns: [
+                ScreenChatTurn(request: "what are these results?", reply: "Harvard and Wikipedia."),
+                ScreenChatTurn(request: "open the first one", reply: nil),
+            ])
+
+        _ = try await client.respond(to: screenChatRequest)
+
+        let body = try jsonObject(of: try #require(fakeTransport.sentRequests.first))
+        let messages = try #require(body["messages"] as? [[String: Any]])
+        #expect(
+            messages.map { $0["role"] as? String } == [
+                "system", "user", "user", "assistant", "user", "assistant", "user",
+            ])
+        #expect(messages[1]["images"] as? [String] == [Data([0x89, 0x50]).base64EncodedString()])
+        #expect(messages[2]["content"] as? String == "what are these results?")
+        #expect(messages[3]["content"] as? String == "Harvard and Wikipedia.")
+        #expect(messages[5]["content"] as? String == LanguageModelRequest.taskTurnReply)
+        #expect(messages.last?["content"] as? String == "Question: and the second one?")
+        #expect(messages.last?["images"] == nil)
+    }
+
     @Test func schemaFieldOrderReachesOllama() async throws {
         let (client, fakeTransport) = makeClient(replies: [
             .response(
