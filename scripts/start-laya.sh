@@ -14,6 +14,8 @@ readonly SERVICE_DIRECTORY="services/laya"
 readonly SOURCE_DIRECTORY="$SERVICE_DIRECTORY/src"
 readonly VIRTUAL_ENVIRONMENT="$SERVICE_DIRECTORY/.venv"
 readonly MODEL_CACHE="$SERVICE_DIRECTORY/model-cache"
+readonly LOG_DIRECTORY="$SERVICE_DIRECTORY/logs"
+readonly LOG_FILE="$LOG_DIRECTORY/laya.log"
 readonly PYTHON_EXECUTABLE="${LAYA_PYTHON:-/opt/homebrew/bin/python3}"
 
 if [[ ! -d "$SOURCE_DIRECTORY/.git" ]]; then
@@ -39,6 +41,12 @@ export HF_HOME="$PWD/$MODEL_CACHE"
 export LOCALDECIDE_HOST="$SERVICE_HOST"
 echo "==> Starting Laya on http://$SERVICE_HOST:$SERVICE_PORT (model cache: $MODEL_CACHE)"
 export LOCALDECIDE_PORT="$SERVICE_PORT"
+# Everything Laya prints (the model it loaded, each request, errors) also goes to the log file,
+# so it can be read later: tail -f services/laya/logs/laya.log
+mkdir -p "$LOG_DIRECTORY"
+echo "==> Logging to $LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "==== Laya started $(date '+%Y-%m-%d %H:%M:%S')"
 # glim_serve.py runs localdecide on the checkpoint scripts/train-laya.sh promoted, if any.
 cd "$SERVICE_DIRECTORY"
-exec "../../$VIRTUAL_ENVIRONMENT/bin/python" glim_serve.py
+exec "../../$VIRTUAL_ENVIRONMENT/bin/python" -u glim_serve.py

@@ -12,18 +12,29 @@ final class AppModel {
     private static let doneStatusDuration = Duration.seconds(2)
     /// Tunable: how long a stop reason stays in the pill.
     private static let stoppedStatusDuration = Duration.seconds(5)
+    /// Tunable: how often screen chat checks whether it has gone quiet.
+    private static let screenChatQuietCheckInterval = Duration.seconds(5)
 
     private(set) var pillStatus = PillStatus.hidden {
-        didSet { pillController?.show(pillStatus) }
+        didSet {
+            pillController?.show(pillStatus)
+            updateScreenChatOverlay()
+        }
     }
     private(set) var tripReason: TripReason?
     private(set) var settings = GlimSettings.safeDefaults {
-        didSet { settingsBox.update(settings) }
+        didSet {
+            settingsBox.update(settings)
+            updateScreenChatOverlay()
+        }
     }
     let settingsBox = SettingsBox()
     private(set) var watchdogState = WatchdogSupervisor.State.starting
     private(set) var isTaskRunning = false
     private(set) var isListening = false
+    /// Screen chat ("screen bleed"): on while the screen edge glows; questions then see the
+    /// whole screen and follow-ups remember the conversation.
+    private(set) var screenChat = ScreenChatSession()
     private(set) var settingsMessage: String?
     /// The latest read check, newest run only; empty until the person runs one.
     var readCheckResults: [ReadCheckResult] = []
@@ -51,6 +62,14 @@ final class AppModel {
     private var pillController: NotchPillController?
     private var controlPanelController: ControlPanelWindowController?
     private var pushToTalkHotkey: GlobalHotkey?
+    private var screenChatHotkey: GlobalHotkey?
+    private var glowController: EdgeGlowController?
+    private var screenChatQuietWatch: Task<Void, Never>?
+    /// The words of the task now running, kept as a screen chat turn when it ends.
+    private var runningTranscript: String?
+    /// The caption at the bottom of the screen in screen chat: your words while you speak, then
+    /// Glim's answer.
+    private var screenChatCaption: String?
     private var stopResponder: WatchdogStopResponder?
     private var runningTask: Task<Void, Never>?
     private var listeningTask: Task<Void, Never>?
@@ -82,10 +101,12 @@ final class AppModel {
     func start() async {
         decisionPresenter = DecisionPresenter(model: self)
         pillController = NotchPillController(model: self)
+        glowController = EdgeGlowController()
         controlPanelController = ControlPanelWindowController(model: self)
         watchKillSwitch()
         startWatchdog()
         registerPushToTalk()
+        registerScreenChatHotkey()
         await loadSettings()
         preloadPlannerModel()
     }
@@ -154,6 +175,7 @@ final class AppModel {
     private func beginListening() {
         guard !isListening else { return }
         isListening = true
+        screenChat.noteActivity(at: .now)
         narrator.stopSpeaking()
         preloadPlannerModel()
         let showsTranscript = !isTaskRunning
@@ -248,9 +270,12 @@ final class AppModel {
             watchdogHealth: watchdogSupervisor.health)
         let (events, eventContinuation) = AsyncStream<TaskEvent>.makeStream()
         isTaskRunning = true
+        runningTranscript = transcript
         pillResetTask?.cancel()
+        let conversation = screenChat.conversation
         runningTask = Task {
-            async let outcome = runner.run(transcript: transcript) { event in
+            async let outcome = runner.run(transcript: transcript, conversation: conversation) {
+                event in
                 eventContinuation.yield(event)
             }
             for await event in events {
@@ -265,6 +290,11 @@ final class AppModel {
     private func taskFinished(_ outcome: TaskOutcome) {
         isTaskRunning = false
         runningTask = nil
+        rememberScreenChatTurn(for: outcome)
+        if screenChat.isActive, case .answered(let answer) = outcome {
+            screenChatCaption = answer
+            updateScreenChatOverlay()
+        }
         switch outcome {
         case .blocked(let violation, let stepNumber):
             decisionPresenter?.showGuardPopup(
@@ -276,6 +306,117 @@ final class AppModel {
             break
         }
         schedulePillReset()
+    }
+
+    // MARK: - Screen chat
+
+    /// Hold ⌃⌥S to ask about the screen: the glow comes on (if it isn't already) and Glim
+    /// listens; releasing sends the question. The next hold continues the same conversation.
+    private func registerScreenChatHotkey() {
+        let hotkey = GlobalHotkey(
+            combo: .screenChat,
+            onPress: { [weak self] in self?.beginScreenChatQuestion() },
+            onRelease: { [weak self] in self?.endListening() })
+        do {
+            try hotkey.register()
+            screenChatHotkey = hotkey
+        } catch {
+            settingsMessage =
+                "\(HotkeyCombo.screenChat.displayName) is taken by another app. Use the menu bar's Screen Chat item instead."
+        }
+    }
+
+    private func beginScreenChatQuestion() {
+        if !screenChat.isActive {
+            startScreenChat()
+        }
+        guard screenChat.isActive else { return }
+        beginListening()
+    }
+
+    /// Turns screen chat on or off from the menu or the Screen Glow page.
+    func toggleScreenChat() {
+        if screenChat.isActive {
+            endScreenChat(reason: "You turned it off.")
+        } else {
+            startScreenChat()
+        }
+    }
+
+    private func startScreenChat() {
+        guard isArmed else {
+            showPillMessage(.stopped(reason: "Glim is stopped. Click Re-arm first."))
+            return
+        }
+        screenChat.start(at: .now)
+        screenChatCaption = nil
+        glowController?.show()
+        updateScreenChatOverlay()
+        audit(.screenChatStarted, "Screen chat started.")
+        screenChatQuietWatch?.cancel()
+        screenChatQuietWatch = Task {
+            while self.screenChat.isActive {
+                do {
+                    try await Task.sleep(for: Self.screenChatQuietCheckInterval)
+                } catch {
+                    return
+                }
+                if !self.isTaskRunning, !self.isListening,
+                    self.screenChat.hasGoneQuiet(at: .now)
+                {
+                    self.endScreenChat(reason: "It was quiet for a minute.")
+                }
+            }
+        }
+    }
+
+    /// Sends the glow its look and the caption its text. Both windows ignore repeats, so this
+    /// is cheap to call on every voice update.
+    private func updateScreenChatOverlay() {
+        guard screenChat.isActive, let glowController else { return }
+        glowController.apply(
+            EdgeGlowAppearance(theme: settings.glowTheme, mood: pillStatus.orbMood))
+        if case .listening(let transcript, _) = pillStatus {
+            screenChatCaption = transcript.isEmpty ? "Listening…" : transcript
+        }
+        glowController.showCaption(screenChatCaption)
+    }
+
+    private func endScreenChat(reason: String) {
+        guard screenChat.isActive else { return }
+        screenChat.end()
+        screenChatQuietWatch?.cancel()
+        screenChatQuietWatch = nil
+        screenChatCaption = nil
+        glowController?.hide()
+        audit(.screenChatEnded, "Screen chat ended. \(reason)")
+    }
+
+    /// Keeps what was asked and answered, so the next question can refer back to it. Tasks keep
+    /// only the request; stopped or failed requests aren't kept.
+    private func rememberScreenChatTurn(for outcome: TaskOutcome) {
+        defer { runningTranscript = nil }
+        guard screenChat.isActive, let request = runningTranscript else { return }
+        switch outcome {
+        case .answered(let answer):
+            screenChat.record(ScreenChatTurn(request: request, reply: answer), at: .now)
+        case .completed:
+            screenChat.record(ScreenChatTurn(request: request, reply: nil), at: .now)
+        case .blocked, .failed, .stopped, .cancelled:
+            screenChat.noteActivity(at: .now)
+        }
+    }
+
+    private func audit(_ kind: AuditEventKind, _ summary: String) {
+        Task { [services] in
+            do {
+                try await services.auditLog.append(kind, summary: summary)
+            } catch {
+                Self.logger.error(
+                    "Could not audit \(kind.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
     }
 
     // MARK: - Kill switch
@@ -301,6 +442,7 @@ final class AppModel {
 
     private func killSwitchTripped(_ reason: TripReason) {
         tripReason = reason
+        endScreenChat(reason: "Glim was stopped.")
         runningTask?.cancel()
         narrator.stopSpeaking()
         isListening = false

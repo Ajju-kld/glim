@@ -26,6 +26,14 @@ struct MenuBarContent: View {
             model.toggleListeningFromMenu()
         }
         .disabled(!model.isArmed)
+        Button(
+            model.screenChat.isActive
+                ? "End Screen Chat"
+                : "Screen Chat (or hold \(HotkeyCombo.screenChat.displayName))"
+        ) {
+            model.toggleScreenChat()
+        }
+        .disabled(!model.isArmed && !model.screenChat.isActive)
         Divider()
         Button("STOP  \(HotkeyCombo.killSwitch.displayName)", role: .destructive) {
             model.stopEverything()

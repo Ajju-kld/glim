@@ -27,6 +27,18 @@ gate written in plain, tested Swift. Plans start at once; Glim asks only before 
 
 ## What's new
 
+- **Screen chat, with a glowing screen edge.** Hold ⌃⌥S and ask about anything on your
+  screen ("what are these results?"): light bleeds in around the edges, your words appear at
+  the bottom, then Glim's answer. Hold ⌃⌥S again to follow up ("and the second one?", "open
+  it") — Glim remembers the conversation until a minute of quiet. Glim sees the whole
+  screen while it glows, except apps set to Never touch, which are cut out of the picture.
+  Pick the glow's colours — Glim's orb colours, a rainbow, one colour, or your own — on the
+  new **Screen Glow** page; your choice is saved.
+- **Browsers: pages load before the next step, and Return in the address bar runs without
+  asking.** "Search X and open the first result" now waits for the results. Return in a web
+  page still asks.
+- **Spotify's buttons are readable** when Glim opens Spotify, so its clicks are direct and
+  quick instead of guessed from a screenshot.
 - **A new orb.** Glim's orb is now a sphere of flowing light: colours drift inside a liquid
   edge that ripples with your voice, under a glossy highlight, with a turning aura behind it.
   Each state has its own palette. The app icon and the animation above show it.

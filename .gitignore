@@ -8,4 +8,5 @@ services/laya/src/
 services/laya/.venv/
 services/laya/model-cache/
 services/laya/checkpoints/
+services/laya/logs/
 services/laya/**/__pycache__/

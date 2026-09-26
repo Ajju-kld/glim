@@ -16,6 +16,9 @@ public struct TaskRunnerDependencies: Sendable {
     let isWatchdogAlive: @Sendable () -> Bool
     /// Keeps each step Laya reviewed as a training example; nil when saving is off.
     let layaExampleSaver: (@Sendable (LayaExample) async -> Void)?
+    /// Glim's own bundle identifiers, whose windows (the glow, the pill) a screen chat picture
+    /// leaves out.
+    let ownBundleIdentifiers: Set<String>
 
     /// Collects the runner's dependencies.
     public init(
@@ -32,7 +35,8 @@ public struct TaskRunnerDependencies: Sendable {
         takeoverMonitor: TakeoverMonitor?,
         safetyPolicyProvider: @escaping @Sendable () -> SafetyPolicy,
         isWatchdogAlive: @escaping @Sendable () -> Bool,
-        layaExampleSaver: (@Sendable (LayaExample) async -> Void)? = nil
+        layaExampleSaver: (@Sendable (LayaExample) async -> Void)? = nil,
+        ownBundleIdentifiers: Set<String> = []
     ) {
         self.planner = planner
         self.screenReader = screenReader
@@ -48,5 +52,6 @@ public struct TaskRunnerDependencies: Sendable {
         self.safetyPolicyProvider = safetyPolicyProvider
         self.isWatchdogAlive = isWatchdogAlive
         self.layaExampleSaver = layaExampleSaver
+        self.ownBundleIdentifiers = ownBundleIdentifiers
     }
 }

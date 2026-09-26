@@ -72,3 +72,52 @@ struct PlanMatcherTests {
         #expect(!matcher.elementMatchesPlan(targetDescription: "compose", element: button))
     }
 }
+
+/// Notes' note body (and other editors) has no name of its own, so it is listed as "Untitled
+/// text area"; a plan that asks to type into a "note body" must still find it.
+struct PlanMatcherUnnamedBodyTests {
+    let matcher = PlanMatcher()
+    let unnamedTextArea = UIElementSnapshot.fixture(
+        number: 7, role: "AXTextArea", label: ElementTableBuilder.untitledLabel(for: "AXTextArea"))
+    let unnamedTextField = UIElementSnapshot.fixture(
+        number: 8, role: "AXTextField",
+        label: ElementTableBuilder.untitledLabel(for: "AXTextField"))
+
+    @Test(arguments: ["note body", "body", "message body", "the note content", "text area"])
+    func bodyTargetMatchesAnUnnamedTextArea(target: String) {
+        #expect(matcher.elementMatchesPlan(targetDescription: target, element: unnamedTextArea))
+    }
+
+    @Test func titleTargetDoesNotMatchTheBody() {
+        #expect(
+            !matcher.elementMatchesPlan(targetDescription: "note title", element: unnamedTextArea))
+    }
+
+    /// A single-line field is not a body.
+    @Test func bodyTargetDoesNotMatchAnUnnamedTextField() {
+        #expect(
+            !matcher.elementMatchesPlan(targetDescription: "note body", element: unnamedTextField))
+    }
+
+    /// A text area with its own name is judged by that name, as before.
+    @Test func namedTextAreaIsJudgedByItsName() {
+        let commentBox = UIElementSnapshot.fixture(
+            number: 9, role: "AXTextArea", label: "Comment")
+
+        #expect(!matcher.elementMatchesPlan(targetDescription: "note body", element: commentBox))
+    }
+
+    /// Notes' layout: the planner picks the body without asking the model.
+    @Test func plannerTypesIntoTheNoteBodyWithoutTheModel() async throws {
+        let model = FakeLanguageModel(answers: [])
+        let searchField = UIElementSnapshot.fixture(
+            number: 1, role: "AXTextField", label: "Search")
+
+        let choice = try await Planner(languageModel: model).pickTarget(
+            for: .typeText(appName: "Notes", target: "note body", text: "hello world"),
+            goal: "write hello world", among: [searchField, unnamedTextField, unnamedTextArea])
+
+        #expect(choice == .element(unnamedTextArea, pickedBy: .planMatch))
+        #expect(model.requests.isEmpty)
+    }
+}

@@ -585,22 +585,26 @@ extension TaskRunner {
         return resolvedApp
     }
 
-    /// Reads the app's front window, waiting briefly for one to appear: an app reopened with
-    /// every window closed (Notes, for one) shows its window a moment later.
+    /// Reads the app's front window, waiting briefly for it: an app reopened with every window
+    /// closed (Notes, for one) shows its window a moment later, and an app that was just opened
+    /// can be too busy starting up to answer at first.
     private func snapshot(of app: ResolvedApp) async throws -> ScreenSnapshot {
         let deadline = ContinuousClock.now + timing.windowWaitTimeout
         while true {
             do {
                 return try await dependencies.screenReader.snapshotFrontWindow(of: app)
-            } catch .noWindow(let appName) {
-                guard ContinuousClock.now < deadline else {
-                    throw RunnerStop.failed(
-                        ScreenReadingError.noWindow(appName: appName).explanation)
+            } catch let readingError {
+                switch readingError {
+                case .noWindow, .appNotResponding:
+                    guard ContinuousClock.now < deadline else {
+                        throw RunnerStop.failed(readingError.explanation)
+                    }
+                    try ensureArmed()
+                    try await pause(for: timing.appLaunchPollInterval)
+                case .accessibilityNotTrusted, .appNotRunning, .screenRecordingNotAllowed,
+                    .captureFailed:
+                    throw RunnerStop.failed(readingError.explanation)
                 }
-                try ensureArmed()
-                try await pause(for: timing.appLaunchPollInterval)
-            } catch {
-                throw RunnerStop.failed(error.explanation)
             }
         }
     }

@@ -26,9 +26,11 @@ public struct TaskRunner: Sendable {
 
     /// Runs one request and reports progress through `onEvent`.
     public func run(
-        transcript: String, onEvent: @escaping @Sendable (TaskEvent) -> Void
+        transcript: String, conversation: ScreenChatConversation? = nil,
+        onEvent: @escaping @Sendable (TaskEvent) -> Void
     ) async -> TaskOutcome {
-        var outcome = await outcome(for: transcript, onEvent: onEvent)
+        var outcome = await outcome(
+            for: transcript, conversation: conversation, onEvent: onEvent)
         // Stopping cancels in-flight requests; their errors ("Ollama isn't running") are
         // side effects of the stop, not the real reason.
         if case .failed = outcome, let tripReason = dependencies.killSwitch.tripReason {
@@ -46,7 +48,8 @@ public struct TaskRunner: Sendable {
     }
 
     private func outcome(
-        for transcript: String, onEvent: @escaping @Sendable (TaskEvent) -> Void
+        for transcript: String, conversation: ScreenChatConversation?,
+        onEvent: @escaping @Sendable (TaskEvent) -> Void
     ) async -> TaskOutcome {
         let goal = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !goal.isEmpty else {
@@ -68,12 +71,17 @@ public struct TaskRunner: Sendable {
                 elementLabels: frontSnapshot?.table.elements.map(\.label) ?? [],
                 installedAppNames: dependencies.appResolver.installedAppNames(),
                 runningAppNames: dependencies.appResolver.runningAppNames(),
-                limits: currentPolicy.limits)
+                limits: currentPolicy.limits,
+                earlierRequests: conversation?.earlierRequests ?? [])
             let planningTimings = StepTimings()
             let result = try await plannerResult(for: context)
             try await audit(.stepTiming, planningTimings.summary(title: "Planning"))
             switch result {
             case .question:
+                if let conversation {
+                    return try await answerScreenChatQuestion(
+                        goal, frontSnapshot: frontSnapshot, conversation: conversation)
+                }
                 return try await answerQuestion(goal, frontApp: frontApp, snapshot: frontSnapshot)
             case .task(let plan):
                 return try await runTask(plan, onEvent: onEvent)
@@ -112,6 +120,37 @@ public struct TaskRunner: Sendable {
         do {
             answer = try await dependencies.planner.answerQuestion(
                 question, screenText: snapshot?.table.readableText, screenshotPNG: screenshot)
+        } catch {
+            throw RunnerStop.failed(error.explanation)
+        }
+        try await audit(.answerGiven, answer)
+        await dependencies.narrator.say(answer)
+        return .answered(answer)
+    }
+
+    /// Answers a question in screen chat from a picture of the whole screen, with never-touch
+    /// apps and Glim's own windows left out by the capture, plus the front app's text when it
+    /// may be read, and the conversation so far.
+    private func answerScreenChatQuestion(
+        _ question: String, frontSnapshot: ScreenSnapshot?, conversation: ScreenChatConversation
+    ) async throws -> TaskOutcome {
+        let privacy = ScreenChatPrivacy(
+            policy: currentPolicy, glimBundleIdentifiers: dependencies.ownBundleIdentifiers)
+        var screenshot: Data?
+        do {
+            screenshot = try await dependencies.screenshotter.captureDisplay(leavingOut: privacy)
+        } catch {
+            guard frontSnapshot != nil else {
+                throw RunnerStop.failed(error.explanation)
+            }
+            try await audit(
+                .screenReadFailed, "Screenshot failed; answering from text: \(error.explanation)")
+        }
+        let answer: String
+        do {
+            answer = try await dependencies.planner.answerQuestion(
+                question, screenText: frontSnapshot?.table.readableText, screenshotPNG: screenshot,
+                earlierTurns: conversation.earlierTurns)
         } catch {
             throw RunnerStop.failed(error.explanation)
         }

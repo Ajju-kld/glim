@@ -1053,3 +1053,74 @@ exist.
 Not changed: the media-key play/pause action, the "always allow screenshot clicks" button and
 plan caching are still proposals.
 
+## 2026-09-26 — Screen chat ("screen bleed")
+
+Owner: "a feature called screen bleed, where the light bleeds around the screen and reads the
+screen, and you can ask questions, just like Gemini", then "we can change the colour, customise
+it and save the preferred theme". Spec:
+`docs/superpowers/specs/2026-09-26-screen-bleed-design.md`.
+
+**Q:** How does it start and stop? **A (owner):** session mode — ⌃⌥S on and off, a minute of
+quiet ends it, follow-ups remember the conversation. **Q:** What does it read? **A:** the whole
+screen, never-touch apps cut out. **Q:** Tasks during a session? **A:** yes, as normal tasks.
+**Q:** Look? **A:** the orb's colours, changeable, with custom colours saved.
+
+- **GlimCore:** `ScreenChatSession` (on/off, 60 s quiet timeout, last 6 turns),
+  `ScreenChatConversation.earlierRequests` (the person's words only — never Glim's answers, so
+  B-Q8 holds), `ScreenChatPrivacy` (never-touch apps and Glim left out),
+  `ScreenshotCapturing.captureDisplay` (ScreenCaptureKit `excludingApplications`, 1,280 px),
+  a chat layout in `OllamaClient` with the screenshot first so a follow-up on an unchanged
+  screen reuses Ollama's cached image, `PlanningContext.earlierRequests`,
+  `TaskRunner.run(transcript:conversation:)`, `GlowTheme` / `GlowColour` / `OrbPalette` (shared
+  with the orb) / `EdgeGlowMotion`, `HotkeyCombo.screenChat` (⌃⌥S), audit kinds
+  `screenChatStarted` / `screenChatEnded`.
+- **Glim:** `EdgeGlowController` (click-through panel over every Space and full-screen app,
+  `sharingType = .none`), `EdgeGlowView` (three blurred strokes of a turning angular gradient,
+  30 fps, brighter with the voice, pulsing while thinking, red on a stop whatever the theme),
+  the **Screen Glow** control panel page (style, single colour, 2–4 custom colours, live
+  preview; edits save 0.6 s after the last adjustment so dragging a colour doesn't flood the
+  log), a menu bar item.
+- **Measured:** a real display capture took 0.6 s (1,280 × 832). A live follow-up
+  ("and the second one?") on `qwen3-vl:4b` answered "Wikipedia" from the earlier turn in 5.3 s.
+- **Not verified here:** the glow on screen (hidden from screen capture by design, so it can't
+  be screenshotted) and a never-touch app actually cut out of a live capture — both need the
+  owner's eyes; see the hand test in the spec.
+
+## 2026-09-26 — Screen chat: no stutter, hold ⌃⌥S to ask, captions
+
+Owner: pressing ⌃⌥S, then holding ⌃⌥V, made the notch orb stutter and the app hang; "do it like
+the same as Hold ⌃⌥V"; "show the speech transcript at the bottom of the screen".
+
+- **Cause of the stutter (from the code; the hotkeys can't be pressed from the build shell):**
+  the glow was a full-screen SwiftUI `TimelineView` redrawing three blurred strokes 30 times a
+  second on the main thread — the thread that draws the notch orb — and every voice-level update
+  rebuilt it, with an animation restarted on each frame.
+- **Fix:** `EdgeGlowLayerView` paints the ring's shape once into a mask image (shadows for the
+  blur) and lets Core Animation turn a conic gradient and pulse its opacity. The main thread
+  sends a new `EdgeGlowAppearance` only when it changes (mood, theme, or voice level in 0.1
+  steps — tested). The Screen Glow page's preview uses the same view.
+- **Hold ⌃⌥S to ask** (owner's choice): press turns the glow on if needed and listens; release
+  asks. ⌃⌥V stays the plain talk key. The menu item still turns screen chat on and off.
+- **Captions:** a click-through bar at the bottom of the screen shows your words while you speak
+  ("Listening…" before the first word), then Glim's answer (up to three lines). It updates only
+  when the text changes and fades with the glow.
+- **Not verified here:** frame rates on screen — the owner's eyes are needed.
+
+## 2026-09-26 — Laya pinned, Notes' note body, apps still starting
+
+Owner's runs: every Laya check answered `HTTP 422 … Not a complete Laya checkpoint: …/snapshots/7139587…/v10s/model.safetensors is missing`
+(terminal: "Fetching 0 files"); "open Notes and write hello world" blocked with
+`Could not find “note body”` after `“Untitled text area” doesn't match the plan's “note body”`;
+another run failed with `Notes isn't responding` right after opening Notes. The owner asked to
+see Laya's log.
+
+| Cause | Fix |
+|---|---|
+| The latest revision of `cklxx/laya-browser` (7139587) no longer ships `v10s` (only `v15s`), so the cache resolved `main` to a snapshot with nothing to load | `glim_serve.py` pins the published model to revision 4219958 (the last with `v10s`), like `start-laya.sh` pins the source. Checked: a test instance on port 8792 picked "New Note" at 0.95 in 250 ms |
+| Laya printed only to the terminal that started it | `start-laya.sh` also writes everything to `services/laya/logs/laya.log` (git-ignored) |
+| Notes' note body has no name, so it is listed as "Untitled text area", whose words never match "note body" | `PlanMatcher`: a target with a body word (body, content, text, area, editor, document, message) matches an *unnamed* multi-line text area; "note title" doesn't, a single-line field doesn't, a named area is judged by its name. The planner now picks the body without the model |
+| An app just opened can be too busy to answer the first read | A step waits for it (up to the window wait, 3 s), as it already did for a late window |
+
+The `ConnectionResetError` in Laya's terminal is harmless: a request was abandoned by Glim
+(for example a warm-up cut short) before Laya answered.
+

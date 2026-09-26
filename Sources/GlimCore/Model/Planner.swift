@@ -167,9 +167,10 @@ public struct Planner: Sendable {
     }
 
     /// Answers a question about the screen from its text, or from a screenshot when the text
-    /// is too thin.
+    /// is too thin. In screen chat, `earlierTurns` carries the conversation so far.
     public func answerQuestion(
-        _ question: String, screenText: String?, screenshotPNG: Data?
+        _ question: String, screenText: String?, screenshotPNG: Data?,
+        earlierTurns: [ScreenChatTurn]? = nil
     ) async throws(PlannerError) -> String {
         var prompt = "Question: \(question)"
         if let screenText {
@@ -180,7 +181,7 @@ public struct Planner: Sendable {
                 systemPrompt: PlannerPrompts.questionAnswering,
                 userPrompt: prompt,
                 responseSchema: PlannerSchemas.answer,
-                imagesPNG: screenshotPNG.map { [$0] } ?? []))
+                imagesPNG: screenshotPNG.map { [$0] } ?? [], earlierTurns: earlierTurns))
         return try decode(QuestionAnswer.self, from: answerText).answer
     }
 
@@ -221,6 +222,11 @@ public struct Planner: Sendable {
         let relevantLabels = CandidateShortlist.relevantLabels(
             context.elementLabels, to: context.goal, limit: planningControlLimit)
         let controlLines = relevantLabels.map { "- \($0)" }.joined(separator: "\n")
+        let earlierRequestLines =
+            context.earlierRequests.isEmpty
+            ? ""
+            : "Earlier requests in this conversation, oldest first:\n"
+                + context.earlierRequests.map { "- \($0)" }.joined(separator: "\n") + "\n"
         return """
             Installed apps: \(context.installedAppNames.joined(separator: ", "))
             Running apps: \(context.runningAppNames.joined(separator: ", "))
@@ -228,7 +234,7 @@ public struct Planner: Sendable {
             Window title: \(context.windowTitle ?? "none")
             Controls in the front window:
             \(controlLines.isEmpty ? "(none)" : controlLines)
-            Request: \(context.goal)
+            \(earlierRequestLines)Request: \(context.goal)
             """
     }
 

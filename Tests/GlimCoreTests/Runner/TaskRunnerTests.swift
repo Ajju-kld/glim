@@ -114,8 +114,12 @@ struct TaskRunnerTests {
             return TaskRunner(dependencies: dependencies, timing: timing)
         }
 
-        func run(_ transcript: String, runner: TaskRunner? = nil) async -> TaskOutcome {
-            await (runner ?? makeRunner()).run(transcript: transcript) { event in
+        func run(
+            _ transcript: String, runner: TaskRunner? = nil,
+            conversation: ScreenChatConversation? = nil
+        ) async -> TaskOutcome {
+            await (runner ?? makeRunner()).run(transcript: transcript, conversation: conversation) {
+                event in
                 events.record(event)
             }
         }
@@ -334,6 +338,34 @@ struct TaskRunnerTests {
 
             #expect(await harness.run("click new item") == .completed)
             #expect(harness.executor.performed.map(\.targetElement) == [Self.newItemButton])
+        }
+    }
+
+    /// An app that was just opened can be too busy starting to answer; the step waits for it
+    /// the same way it waits for a late window.
+    @Test func stepWaitsForAnAppStillStartingUp() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = Harness(
+                model: FakeLanguageModel(answers: [.success(Self.clickNewItemPlan)]),
+                screenReader: ScriptedScreenReader(table: Self.testbedTable, readsNotResponding: 3),
+                executor: RecordingExecutor(), decisions: ScriptedDecisions(),
+                auditLog: AuditLog(directory: directory))
+
+            #expect(await harness.run("click new item") == .completed)
+            #expect(harness.executor.performed.map(\.targetElement) == [Self.newItemButton])
+        }
+    }
+
+    @Test func appThatNeverRespondsFailsWithTheReason() async throws {
+        try await withTemporaryDirectory { directory in
+            let harness = Harness(
+                model: FakeLanguageModel(answers: [.success(Self.clickNewItemPlan)]),
+                screenReader: ScriptedScreenReader(
+                    table: Self.testbedTable, readsNotResponding: .max),
+                executor: RecordingExecutor(), decisions: ScriptedDecisions(),
+                auditLog: AuditLog(directory: directory))
+
+            #expect(await harness.run("click new item") == .failed("Testbed isn't responding."))
         }
     }
 

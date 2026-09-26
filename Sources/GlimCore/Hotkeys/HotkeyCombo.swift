@@ -10,6 +10,11 @@ public struct HotkeyCombo: Sendable, Equatable {
     public static let pushToTalk = HotkeyCombo(
         identifier: 2, keyCode: UInt32(kVK_ANSI_V),
         carbonModifiers: UInt32(controlKey | optionKey), displayName: "⌃⌥V")
+    /// Business rule: turns screen chat (the glowing screen edge) on and off, next to the talk
+    /// key.
+    public static let screenChat = HotkeyCombo(
+        identifier: 3, keyCode: UInt32(kVK_ANSI_S),
+        carbonModifiers: UInt32(controlKey | optionKey), displayName: "⌃⌥S")
 
     /// Distinguishes this shortcut's events from other registered shortcuts.
     public let identifier: UInt32

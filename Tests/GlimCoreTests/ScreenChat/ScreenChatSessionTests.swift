@@ -51,7 +51,8 @@ struct ScreenChatSessionTests {
         var session = ScreenChatSession()
         session.start(at: start)
         for turnNumber in 1...(ScreenChatSession.maximumRememberedTurns + 2) {
-            session.record(ScreenChatTurn(request: "question \(turnNumber)", reply: "answer"), at: start)
+            session.record(
+                ScreenChatTurn(request: "question \(turnNumber)", reply: "answer"), at: start)
         }
 
         let requests = session.conversation?.earlierRequests ?? []

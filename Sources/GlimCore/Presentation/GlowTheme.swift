@@ -37,7 +37,8 @@ public struct GlowTheme: Sendable, Equatable, Codable {
     /// Placeholder: the colours a new custom theme starts from, the orb's listening teal and
     /// violet.
     static let startingCustomColours = [
-        GlowColour(red: 0.35, green: 0.95, blue: 1.0), GlowColour(red: 0.75, green: 0.35, blue: 1.0),
+        GlowColour(red: 0.35, green: 0.95, blue: 1.0),
+        GlowColour(red: 0.75, green: 0.35, blue: 1.0),
     ]
 
     /// The theme Glim starts with: the orb's colours.

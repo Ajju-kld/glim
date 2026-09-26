@@ -46,6 +46,7 @@ struct ControlPanelView: View {
         case .appsTrust: AppsTrustPage()
         case .safetyRules: SafetyRulesPage()
         case .aiModels: AIModelsPage()
+        case .screenGlow: ScreenGlowPage()
         case .permissions: PermissionsPage()
         case .activityLog: ActivityLogPage()
         case .layaTraining: LayaTrainingPage()

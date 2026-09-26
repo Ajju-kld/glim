@@ -16,7 +16,17 @@ struct HotkeyComboTests {
         #expect(HotkeyCombo.pushToTalk.displayName == "⌃⌥V")
     }
 
+    @Test func screenChatIsControlOptionS() {
+        #expect(HotkeyCombo.screenChat.keyCode == UInt32(kVK_ANSI_S))
+        #expect(HotkeyCombo.screenChat.carbonModifiers == UInt32(controlKey | optionKey))
+        #expect(HotkeyCombo.screenChat.displayName == "⌃⌥S")
+    }
+
     @Test func combosHaveDistinctIdentifiers() {
-        #expect(HotkeyCombo.killSwitch.identifier != HotkeyCombo.pushToTalk.identifier)
+        let identifiers = [
+            HotkeyCombo.killSwitch.identifier, HotkeyCombo.pushToTalk.identifier,
+            HotkeyCombo.screenChat.identifier,
+        ]
+        #expect(Set(identifiers).count == identifiers.count)
     }
 }

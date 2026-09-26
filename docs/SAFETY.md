@@ -59,6 +59,15 @@ The text to type is fixed at this moment. Later, while the task runs, the AI onl
 New apps start as read-only (default-deny). An app pretending to be another app — same name,
 but its code signature doesn't check out — never gets more than read-only.
 
+**Screen chat (hold ⌃⌥S) sees the whole screen — except never-touch apps.** While the screen edge
+glows, a question is answered from a picture of the whole main display. Never-touch apps (and
+Glim's own windows) are removed by macOS's screen capture itself, so their pixels never reach
+Glim or the AI; the front app's text is added only if that app may be read. Nothing is read
+while the glow is off, screenshots stay in memory, and the Activity Log records the session
+starting and ending and each question, never screen text. Commands given during screen chat run
+as ordinary tasks, with every check and confirmation below. The planner still never sees screen
+content: in screen chat it sees your own earlier requests, never Glim's answers.
+
 ## 3. Dangerous words are blocked, risky words ask
 
 Before every click, Glim reads the button's label, description and tooltip.

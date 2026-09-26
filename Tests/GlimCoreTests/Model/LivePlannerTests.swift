@@ -131,4 +131,21 @@ struct LivePlannerTests {
             calendarTargets.first?.localizedCaseInsensitiveCompare("Calendars") == .orderedSame,
             "Calendar targets: \(calendarTargets)")
     }
+
+    /// Screen chat: "and the second one?" only makes sense with the earlier turn.
+    @Test func screenChatFollowUpUsesTheConversation() async throws {
+        let earlierTurns = [
+            ScreenChatTurn(
+                request: "what's the first search result?", reply: "It's Harvard University.")
+        ]
+        let started = ContinuousClock.now
+        let answer = try await planner.answerQuestion(
+            "and the second one?",
+            screenText: "Search results: 1. Harvard University — harvard.edu. "
+                + "2. Wikipedia — Harvard University article. 3. US News rankings.",
+            screenshotPNG: nil, earlierTurns: earlierTurns)
+        print("LIVE follow-up (\(ContinuousClock.now - started)): \(answer)")
+
+        #expect(answer.localizedCaseInsensitiveContains("Wikipedia"))
+    }
 }

@@ -14,6 +14,7 @@ final class ScriptedScreenReader: ScreenReading {
     private let readsWithoutWindow: Int
     private let tableSequence: [ElementTable]
     private let focusIsBrowserAddressBar: Bool
+    private let readsNotResponding: Int
 
     /// Creates a reader that returns `table`.
     ///
@@ -26,10 +27,12 @@ final class ScriptedScreenReader: ScreenReading {
     ///   - tableSequence: When not empty, the tables returned by successive reads, the last one
     ///     repeating, as when a web page loads; `table` and `changesEveryRead` are then unused.
     ///   - focusIsBrowserAddressBar: Whether the focused control is a browser's address bar.
+    ///   - readsNotResponding: How many reads report the app not responding first, as when an
+    ///     app is still starting up.
     init(
         table: ElementTable, changesEveryRead: Bool = true, returnTargetTexts: [String] = [],
         readsWithoutWindow: Int = 0, tableSequence: [ElementTable] = [],
-        focusIsBrowserAddressBar: Bool = false
+        focusIsBrowserAddressBar: Bool = false, readsNotResponding: Int = 0
     ) {
         currentTable = Mutex(table)
         self.changesEveryRead = changesEveryRead
@@ -37,6 +40,7 @@ final class ScriptedScreenReader: ScreenReading {
         self.readsWithoutWindow = readsWithoutWindow
         self.tableSequence = tableSequence
         self.focusIsBrowserAddressBar = focusIsBrowserAddressBar
+        self.readsNotResponding = readsNotResponding
     }
 
     /// Simulates the screen changing, for example while a panel waits for the person.
@@ -65,6 +69,9 @@ final class ScriptedScreenReader: ScreenReading {
         }
         guard readNumber > readsWithoutWindow else {
             throw .noWindow(appName: app.identity.displayName)
+        }
+        guard readNumber > readsWithoutWindow + readsNotResponding else {
+            throw .appNotResponding(appName: app.identity.displayName)
         }
         if !tableSequence.isEmpty {
             let sequenceIndex = min(readNumber - readsWithoutWindow, tableSequence.count) - 1

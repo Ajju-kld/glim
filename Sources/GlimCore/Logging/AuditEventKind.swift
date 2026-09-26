@@ -22,5 +22,9 @@ public enum AuditEventKind: String, Sendable, Codable {
     case killSwitchTripped
     case killSwitchRearmed
     case settingsChanged
+    /// Screen chat was turned on: the screen edge glows and questions see the whole screen.
+    case screenChatStarted
+    /// Screen chat was turned off, by the person or after a quiet spell.
+    case screenChatEnded
     case settingsReset
 }

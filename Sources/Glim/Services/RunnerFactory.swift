@@ -1,3 +1,4 @@
+import Foundation
 import GlimCore
 import os
 
@@ -67,7 +68,8 @@ enum RunnerFactory {
             },
             isWatchdogAlive: { watchdogHealth.isAlive },
             layaExampleSaver: layaExampleSaver(
-                isSaving: settings.savesLayaExamples, store: services.layaExamples))
+                isSaving: settings.savesLayaExamples, store: services.layaExamples),
+            ownBundleIdentifiers: Set([Bundle.main.bundleIdentifier].compactMap { $0 }))
         return TaskRunner(dependencies: dependencies)
     }
 

@@ -9,7 +9,8 @@ you can ask questions, just like Gemini." Decisions, all from the owner:
 
 | Question | Answer |
 |---|---|
-| How it starts and stops | **Session mode**: a hotkey (⌃⌥S) turns it on; ask several questions with ⌃⌥V; follow-ups remember the conversation; the same hotkey or about a minute of quiet turns it off |
+| How it starts and stops | **Session mode**, changed after the first try to **hold ⌃⌥S to ask** (like ⌃⌥V): the first hold turns the glow on, each hold asks, follow-ups remember the conversation, about a minute of quiet (or STOP, or the menu) ends it |
+| Captions | Added after the first try: your words at the bottom of the screen while you speak, then Glim's answer |
 | What Glim reads | **The whole screen, with private apps cut out**: never-touch apps (and Glim itself) are removed from the screenshot before the model sees it; the front app's text is added for accuracy |
 | Tasks during a session | **Answer and do**: commands run as normal Glim tasks through the same safety gate |
 | Look | **Glim's orb colours** by default, following the orb's moods; **changeable in settings**, including **custom colours**, and the chosen theme is saved |
@@ -38,8 +39,8 @@ you can ask questions, just like Gemini." Decisions, all from the owner:
 | `DisplayScreenshotter` (on `ScreenshotCapturing`) | GlimCore | whole-display capture excluding those apps, fitted to 1,280 px |
 | Conversation in `LanguageModelRequest` / `OllamaClient` | GlimCore | chat layout with the screenshot first, then earlier turns, then the new question, so Ollama reuses its cached reading of an unchanged screenshot |
 | `TaskRunner.run(transcript:conversation:)` | GlimCore | passes earlier requests to planning; answers session questions from the display capture and earlier turns |
-| ⌃⌥S `HotkeyCombo.screenChat` | GlimCore / Glim | toggles the session |
-| `EdgeGlowController` + `EdgeGlowView` | Glim | click-through overlay over every Space and full-screen app, hidden from screen capture; glow brightens with the voice and pulses while thinking |
+| ⌃⌥S `HotkeyCombo.screenChat` | GlimCore / Glim | hold to ask: turns the session on if needed and listens; release asks |
+| `EdgeGlowController` + `EdgeGlowLayerView` | Glim | click-through overlays (glow and caption bar) over every Space and full-screen app, hidden from screen capture. The ring is painted once into a mask; Core Animation turns the conic gradient and pulses it, so no per-frame work runs on the main thread. `EdgeGlowAppearance` (GlimCore) changes only on a mood, theme or 0.1-step voice-level change, and only then is the window touched |
 | Appearance page | Glim | style picker, single colour, custom colours, live preview |
 
 ## Speed

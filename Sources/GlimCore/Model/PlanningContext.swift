@@ -15,6 +15,9 @@ public struct PlanningContext: Sendable, Equatable {
     public let runningAppNames: [String]
     /// The limits in effect, which bound the plan the model may write.
     public let limits: SafetyLimits
+    /// In screen chat, the person's own earlier requests, oldest first, so a follow-up such as
+    /// "open the second one" can be planned. Never Glim's answers, which come from the screen.
+    public let earlierRequests: [String]
 
     /// Creates a planning context.
     public init(
@@ -24,7 +27,8 @@ public struct PlanningContext: Sendable, Equatable {
         elementLabels: [String],
         installedAppNames: [String],
         runningAppNames: [String],
-        limits: SafetyLimits = .safeDefaults
+        limits: SafetyLimits = .safeDefaults,
+        earlierRequests: [String] = []
     ) {
         self.goal = goal
         self.frontAppName = frontAppName
@@ -33,5 +37,6 @@ public struct PlanningContext: Sendable, Equatable {
         self.installedAppNames = installedAppNames
         self.runningAppNames = runningAppNames
         self.limits = limits
+        self.earlierRequests = earlierRequests
     }
 }
